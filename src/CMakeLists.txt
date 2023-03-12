@@ -1,0 +1,24 @@
+set(SOURCE_FILES
+	${SOURCE_FILES}
+
+	#wrp
+	${CMAKE_CURRENT_SOURCE_DIR}/wrp/World.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/wrp/World_4WVR.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/wrp/World_4WVR.hpp
+
+	#wss
+	${CMAKE_CURRENT_SOURCE_DIR}/wss/WSS.hpp
+	${CMAKE_CURRENT_SOURCE_DIR}/wss/WSSCompressedCodingFormat.hpp
+	${CMAKE_CURRENT_SOURCE_DIR}/wss/WSSDecoder.hpp
+	${CMAKE_CURRENT_SOURCE_DIR}/wss/WSSDecoderContext.hpp
+	${CMAKE_CURRENT_SOURCE_DIR}/wss/WSSDemuxer.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/wss/WSSDemuxer.hpp
+	${CMAKE_CURRENT_SOURCE_DIR}/wss/WSSFormat.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/wss/WSSMuxer.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/wss/WSSMuxer.hpp
+
+	#.
+	${CMAKE_CURRENT_SOURCE_DIR}/Shared.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/Shared.hpp
+
+	PARENT_SCOPE)

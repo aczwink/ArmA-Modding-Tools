@@ -1,0 +1,13 @@
+set(SOURCE_FILES
+	${SOURCE_FILES}
+
+	#wrp
+	${CMAKE_CURRENT_SOURCE_DIR}/libBISMod/wrp/World.hpp
+
+	#wss
+	${CMAKE_CURRENT_SOURCE_DIR}/libBISMod/wss/WSSFormat.hpp
+
+	#.
+	${CMAKE_CURRENT_SOURCE_DIR}/libBISMod.hpp
+
+	PARENT_SCOPE)
