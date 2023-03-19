@@ -16,15 +16,11 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <StdXXCore.hpp>
+using namespace StdXX;
 
-//p3d
-#include <libBISMod/p3d/P3D.hpp>
+//Definitions
+#define P3D_GAPSIZE_COMPRESSION 1023 //Array which is bigger than this is compressed
 
-//raP
-#include <libBISMod/raP/raP.hpp>
-
-//wrp
-#include <libBISMod/wrp/World.hpp>
-
-//wss
-#include <libBISMod/wss/WSSFormat.hpp>
+void LZSSCompressData(const byte *pInput, uint32 uncompressedSize, byte *pOutput, uint32 &refOutputSize);
+bool LZSSReadCompressed(byte *pOutput, uint32 uncompressedSize, InputStream &refInput);

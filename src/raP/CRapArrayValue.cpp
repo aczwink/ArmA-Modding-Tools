@@ -16,15 +16,34 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
+//Class header
+#include <libBISMod/raP/CRapArrayValue.hpp>
+//Namespaces
+using namespace libBISMod;
+using namespace StdXX;
 
-//p3d
-#include <libBISMod/p3d/P3D.hpp>
+//Public methods
+void CRapArrayValue::SetType(ERapArrayType type)
+{
+	this->type = type;
+}
 
-//raP
-#include <libBISMod/raP/raP.hpp>
+void CRapArrayValue::SetValue(int32 i)
+{
+	this->iValue = i;
+}
 
-//wrp
-#include <libBISMod/wrp/World.hpp>
+void CRapArrayValue::SetValue(float32 f)
+{
+	this->fValue = f;
+}
 
-//wss
-#include <libBISMod/wss/WSSFormat.hpp>
+void CRapArrayValue::SetValue(String str)
+{
+	this->str = str;
+}
+
+void CRapArrayValue::SetValue(const DynamicArray<CRapArrayValue> &refArray)
+{
+	this->embeddedArray = refArray;
+}

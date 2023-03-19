@@ -16,15 +16,19 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
+//Local
+#include "P3DEditMainWindow.hpp"
 
-//p3d
-#include <libBISMod/p3d/P3D.hpp>
+int32 Main(const String &programName, const FixedArray<String> &args)
+{
+	EventHandling::StandardEventQueue eventQueue;
+	P3DEditMainWindow* mainWindow = new P3DEditMainWindow(eventQueue);
 
-//raP
-#include <libBISMod/raP/raP.hpp>
+	if(args.GetNumberOfElements() == 1)
+		mainWindow->OpenFile(FileSystem::FileSystemsManager::Instance().OSFileSystem().FromNativePath(args[0]));
 
-//wrp
-#include <libBISMod/wrp/World.hpp>
+	mainWindow->Show();
 
-//wss
-#include <libBISMod/wss/WSSFormat.hpp>
+	eventQueue.ProcessEvents();
+	return EXIT_SUCCESS;
+}

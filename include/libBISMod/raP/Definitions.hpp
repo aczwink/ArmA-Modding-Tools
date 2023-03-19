@@ -16,15 +16,37 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
 
-//p3d
-#include <libBISMod/p3d/P3D.hpp>
+namespace libBISMod
+{
+	enum ERapArrayType
+	{
+		RAP_ARRAYTYPE_STRING,
+		RAP_ARRAYTYPE_FLOAT,
+		RAP_ARRAYTYPE_INT,
+		RAP_ARRAYTYPE_EMBEDDEDARRAY
+	};
 
-//raP
-#include <libBISMod/raP/raP.hpp>
+	enum ERapPacketType
+	{
+		RAP_PACKETTYPE_ILLEGAL = -1,
+		RAP_PACKETTYPE_CLASS,
+		RAP_PACKETTYPE_VARIABLE,
+		RAP_PACKETTYPE_ARRAY
+	};
 
-//wrp
-#include <libBISMod/wrp/World.hpp>
+	enum ERapVariableType
+	{
+		RAP_VARIABLETYPE_STRING,
+		RAP_VARIABLETYPE_FLOAT,
+		RAP_VARIABLETYPE_INT
+	};
 
-//wss
-#include <libBISMod/wss/WSSFormat.hpp>
+	//Structs
+	struct SRapErrorContext
+	{
+		StdXX::String context;
+		uint32 lineNumber;
+	};
+}

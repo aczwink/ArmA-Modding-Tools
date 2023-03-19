@@ -16,15 +16,15 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
+//Definitions
+#define RAP_HEADER_SIGNATURE "\0raP"
+#define RAP_HEADER_SIGNATURELENGTH 4
+#define RAP_HEADER_VERSION "\4\0\0"
+#define RAP_HEADER_VERSIONLENGTH 3
 
-//p3d
-#include <libBISMod/p3d/P3D.hpp>
-
-//raP
-#include <libBISMod/raP/raP.hpp>
-
-//wrp
-#include <libBISMod/wrp/World.hpp>
-
-//wss
-#include <libBISMod/wss/WSSFormat.hpp>
+//Structs
+struct SRapFunctionDefinition
+{
+	StdXX::DynamicArray<StdXX::String> params;
+	StdXX::String body;
+};

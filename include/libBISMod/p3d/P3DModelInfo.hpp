@@ -16,15 +16,17 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
 
-//p3d
-#include <libBISMod/p3d/P3D.hpp>
+namespace libBISMod
+{
+	class P3DModelInfo
+	{
+	public:
+		//Destructor
+		virtual ~P3DModelInfo() = default;
 
-//raP
-#include <libBISMod/raP/raP.hpp>
-
-//wrp
-#include <libBISMod/wrp/World.hpp>
-
-//wss
-#include <libBISMod/wss/WSSFormat.hpp>
+		//Abstract
+		virtual void Write(StdXX::OutputStream& outputStream) const = 0;
+	};
+}

@@ -16,15 +16,29 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <StdXX.hpp>
+#include <libBISMod.hpp>
+using namespace libBISMod;
+using namespace StdXX;
+using namespace StdXX::UI;
 
-//p3d
-#include <libBISMod/p3d/P3D.hpp>
+class P3DEditMainWindow : public MainAppWindow
+{
+public:
+	//Constructor
+	inline P3DEditMainWindow(EventHandling::EventQueue& eventQueue) : MainAppWindow(eventQueue)
+	{
+		this->SetTitle(u8"p3dEdit by Amir Czwink");
+		this->BuildMenu();
+	}
 
-//raP
-#include <libBISMod/raP/raP.hpp>
+	//Methods
+	void OpenFile(const FileSystem::Path& filePath);
 
-//wrp
-#include <libBISMod/wrp/World.hpp>
+private:
+	//State
+	UniquePointer<P3DData> p3dData;
 
-//wss
-#include <libBISMod/wss/WSSFormat.hpp>
+	//Methods
+	void BuildMenu();
+};

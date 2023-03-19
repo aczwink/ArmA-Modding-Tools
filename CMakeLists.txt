@@ -10,6 +10,7 @@ XPC_SetCompileDefinitions()
 
 find_package(StdPlusPlus REQUIRED)
 
+add_subdirectory(tools/p3dEdit)
 add_subdirectory(tools/raPEdit)
 add_subdirectory(tools/wrpEdit)
 add_subdirectory(tools/wssEdit)

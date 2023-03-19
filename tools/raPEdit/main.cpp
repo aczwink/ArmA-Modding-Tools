@@ -17,11 +17,43 @@
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <StdXX.hpp>
+#include <libBISMod.hpp>
+using namespace libBISMod;
 using namespace StdXX;
 using namespace StdXX::FileSystem;
 
 //Prototypes
 void PrintManual();
+
+void bin2cpp(const Path& input, const Path& output)
+{
+	CRapTree tree;
+	ReadRapTreeFromFile(input, &tree);
+	SaveRawRapTreeToFile(output, &tree);
+
+	/*
+	 * else
+	{
+		stdOut << "File \"" << g_Input << "\" couldn't be read." << endl;
+		return false;
+	}
+	 */
+}
+
+void cpp2bin(const Path& input, const Path& output)
+{
+	CRapTree tree;
+	SRapErrorContext ctx;
+
+	RapParseFile(input, &tree, &ctx);
+	SaveRapTreeToFile(output, &tree);
+	/*
+	else
+	{
+		stdOut << "Error on line " << ctx.lineNumber << ": " << GetErrorDescription(result) << endl << "Context:" << endl << ctx.context << endl << endl;
+		return false;
+	}*/
+}
 
 int32 Main(const String &programName, const FixedArray<String> &args)
 {

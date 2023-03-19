@@ -16,15 +16,43 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <StdXXCore.hpp>
+#include "P3DLod.hpp"
+#include "P3DModelInfo.hpp"
 
-//p3d
-#include <libBISMod/p3d/P3D.hpp>
+namespace libBISMod
+{
+	enum class P3DType
+	{
+		MLOD,
+		ODOL7
+	};
 
-//raP
-#include <libBISMod/raP/raP.hpp>
+	class P3DData
+	{
+	public:
+		//State
+		StdXX::DynamicArray<StdXX::UniquePointer<P3DLod>> lods;
+		StdXX::UniquePointer<P3DModelInfo> modelInfo;
 
-//wrp
-#include <libBISMod/wrp/World.hpp>
+		//Constructor
+		inline P3DData(P3DType type) : type(type)
+		{
+		}
 
-//wss
-#include <libBISMod/wss/WSSFormat.hpp>
+		//Properties
+		inline P3DType Type() const
+		{
+			return this->type;
+		}
+
+	private:
+		//State
+		P3DType type;
+	};
+
+	StdXX::String LodResolutionToString(float resolutiuon);
+	StdXX::String P3dTypeToString(P3DType type);
+	StdXX::UniquePointer<P3DData> ReadP3DFile(StdXX::InputStream& inputStream);
+	void WriteP3DFile(const StdXX::FileSystem::Path& path, const P3DData& data);
+}

@@ -16,15 +16,14 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <StdXXFileSystem.hpp>
+#include "CRapNode.hpp"
 
-//p3d
-#include <libBISMod/p3d/P3D.hpp>
-
-//raP
-#include <libBISMod/raP/raP.hpp>
-
-//wrp
-#include <libBISMod/wrp/World.hpp>
-
-//wss
-#include <libBISMod/wss/WSSFormat.hpp>
+namespace libBISMod
+{
+	void RapParse(StdXX::String source, StdXX::String rootName, CRapTree *pRootNode, SRapErrorContext *pCtx);
+	void RapParseFile(const StdXX::FileSystem::Path& inputPath, CRapTree *pRootNode, SRapErrorContext *pCtx);
+	void ReadRapTreeFromFile(const StdXX::FileSystem::Path& path, CRapTree *pRootNode);
+	void SaveRapTreeToFile(const StdXX::FileSystem::Path& path, CRapTree *pRootNode);
+	void SaveRawRapTreeToFile(const StdXX::FileSystem::Path& path, CRapTree *pRootNode);
+}
