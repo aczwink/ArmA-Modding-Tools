@@ -1,0 +1,93 @@
+name: Build Linux x86-64
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  BUILD_TYPE: Debug
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions: write-all
+
+    steps:
+    #build and install XP-CMake
+    - name: Checkout XP-CMake repo
+      uses: actions/checkout@v4
+      with:
+        repository: aczwink/XP-CMake
+        path: xpcmake
+
+    - name: Create build directory for XP-CMake
+      run: cmake -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -B ${{github.workspace}}/xpcmake/_build -S ${{github.workspace}}/xpcmake
+
+    - name: Build XP-CMake
+      run: cmake --build ${{github.workspace}}/xpcmake/_build --config ${{env.BUILD_TYPE}}
+
+    - name: Install XP-CMake
+      run: sudo make install
+      working-directory: ${{github.workspace}}/xpcmake/_build
+
+
+    #build and install Std++
+    - name: Checkout Std++ repo
+      uses: actions/checkout@v4
+      with:
+        repository: aczwink/StdPlusPlus
+        path: stdpp
+
+    - name: Create build directory for Std++
+      run: cmake -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -B ${{github.workspace}}/stdpp/_build -S ${{github.workspace}}/stdpp
+
+    - name: Build Std++
+      run: cmake --build ${{github.workspace}}/stdpp/_build --config ${{env.BUILD_TYPE}}
+
+    - name: Install Std++
+      run: sudo make install
+      working-directory: ${{github.workspace}}/stdpp/_build
+
+
+
+    #build and install ArmA-Modding-Tools
+    - name: Checkout ArmA-Modding-Tools repo
+      uses: actions/checkout@v4
+      with:
+        path: arma
+
+    - name: Configure build directory for ArmA-Modding-Tools
+      run: cmake -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -B ${{github.workspace}}/arma/_build -S ${{github.workspace}}/arma
+
+    - name: Build ArmA-Modding-Tools
+      run: cmake --build ${{github.workspace}}/arma/_build --config ${{env.BUILD_TYPE}}
+
+    # Create release
+    - name: Pack release archive
+      run: zip --junk-paths bin_linux_x86-64.zip arma/_build/liblibBISMod_d.so arma/_build/tools/wrpEdit/wrpEdit
+          
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+      with:
+        tag_name: latest
+        release_name: Latest build
+        body: |
+          Latest build of master branch
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      id: upload-release-asset 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./bin_linux_x86-64.zip
+        asset_name: bin_linux_x86-64.zip
+        asset_content_type: application/zip

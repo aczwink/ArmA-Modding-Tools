@@ -21,6 +21,16 @@
 
 namespace libBISMod
 {
+	class WorldObject
+	{
+	public:
+		//Destructor
+		virtual ~WorldObject() = default;
+
+		//Methods
+		virtual StdXX::String GetModelFilePath() const = 0;
+	};
+
 	class World
 	{
 	public:
@@ -28,6 +38,8 @@ namespace libBISMod
 		virtual ~World() = default;
 
 		//Methods
+		virtual uint32 GetNumberOfObjects() const = 0;
+		virtual const WorldObject& GetObject(uint32 index) const = 0;
 		virtual void Write(StdXX::OutputStream& outputStream) const = 0;
 	};
 

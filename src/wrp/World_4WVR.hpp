@@ -26,22 +26,27 @@
 #define WRP_4WVR_TEXTUREFILENAMELENGTH 32
 #define WRP_4WVR_OBJECT_P3DFILENAMELENGTH 76
 
-class Object
+class Object_4WVR : public libBISMod::WorldObject
 {
 public:
 	//Members
 	StdXX::Math::Matrix4S transformation;
 	uint32 id;
 	StdXX::String p3dFileName;
+
+	//Methods
+	StdXX::String GetModelFilePath() const override;
 };
 
 class World_4WVR : public libBISMod::World
 {
 public:
 	//Constructor
-	World_4WVR(uint32 dimX, uint32 dimY, StdXX::SeekableInputStream& inputStream);
+	World_4WVR(uint32 dimX, uint32 dimY, StdXX::InputStream& inputStream);
 
 	//Methods
+	uint32 GetNumberOfObjects() const override;
+	const libBISMod::WorldObject &GetObject(uint32 index) const override;
 	void Write(StdXX::OutputStream &outputStream) const override;
 
 private:
@@ -49,5 +54,5 @@ private:
 	StdXX::FixedTable<uint16> elevations;
 	StdXX::FixedTable<uint16> textureIndices;
 	StdXX::String textureFileNames[WRP_4WVR_NUMBEROFTEXTUREFILENAMES];
-	StdXX::DynamicArray<StdXX::UniquePointer<Object>> objects;
+	StdXX::DynamicArray<StdXX::UniquePointer<Object_4WVR>> objects;
 };
