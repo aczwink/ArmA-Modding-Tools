@@ -40,8 +40,9 @@ World *libBISMod::LoadWorld(SeekableInputStream& inputStream)
 	dimX = dataReader.ReadUInt32();
 	dimY = dataReader.ReadUInt32();
 
+	BufferedInputStream bufferedInputStream(inputStream);
 	if(MemCmp(signature, WRP_4WVR_SIGNATURE, WRP_4WVR_SIGNATURELENGTH) == 0)
-		return new World_4WVR(dimX, dimY, inputStream);
+		return new World_4WVR(dimX, dimY, bufferedInputStream);
 
 	ASSERT_EQUALS(0, inputStream.QueryRemainingBytes());
 

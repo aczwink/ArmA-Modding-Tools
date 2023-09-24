@@ -25,8 +25,14 @@
 //Namespaces
 using namespace StdXX;
 
+//Public Object_4WVR methods
+String Object_4WVR::GetModelFilePath() const
+{
+	return this->p3dFileName;
+}
+
 //Constructor
-World_4WVR::World_4WVR(uint32 dimX, uint32 dimY, SeekableInputStream &inputStream) : elevations(dimY, dimX), textureIndices(dimY, dimX)
+World_4WVR::World_4WVR(uint32 dimX, uint32 dimY, InputStream &inputStream) : elevations(dimY, dimX), textureIndices(dimY, dimX)
 {
 	DataReader dataReader(false, inputStream);
 
@@ -55,7 +61,7 @@ World_4WVR::World_4WVR(uint32 dimX, uint32 dimY, SeekableInputStream &inputStrea
 
 	while(!inputStream.IsAtEnd())
 	{
-		Object* pObject = new Object;
+		Object_4WVR* pObject = new Object_4WVR;
 
 		pObject->transformation = ReadTransformation(inputStream);
 		pObject->id = dataReader.ReadUInt32();
@@ -66,6 +72,16 @@ World_4WVR::World_4WVR(uint32 dimX, uint32 dimY, SeekableInputStream &inputStrea
 }
 
 //Public methods
+uint32 World_4WVR::GetNumberOfObjects() const
+{
+	return this->objects.GetNumberOfElements();
+}
+
+const libBISMod::WorldObject& World_4WVR::GetObject(uint32 index) const
+{
+	return *this->objects[index];
+}
+
 void World_4WVR::Write(OutputStream &outputStream) const
 {
 	uint32 dimX = this->elevations.GetNumberOfColumns();
