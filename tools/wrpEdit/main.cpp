@@ -16,21 +16,66 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
-//Local
-#include "WRPEditMainWindow.hpp"
+#include <libBISMod.hpp>
+#include <StdXX.hpp>
+using namespace libBISMod;
 using namespace StdXX;
+using namespace StdXX::CommandLine;
+using namespace StdXX::CommonFileFormats;
+
+static void dump_json(const World& world)
+{
+	auto json = JsonValue::Object();
+	auto objects = JsonValue::Array();
+
+	for(uint32 i = 0; i < world.GetNumberOfObjects(); i++)
+	{
+		auto jsonObject = JsonValue::Object();
+
+		jsonObject[u8"modelFilePath"] = world.GetObject(i).GetModelFilePath();
+
+		objects.Push(Move(jsonObject));
+	}
+
+	json[u8"objects"] = Move(objects);
+
+	stdOut << json.Dump() << endl;
+}
 
 int32 Main(const String &programName, const FixedArray<String> &args)
 {
-	EventHandling::StandardEventQueue eventQueue;
+	Parser commandLineParser(programName);
+	commandLineParser.AddHelpOption();
 
-	WRPEditMainWindow* pMainWnd = new WRPEditMainWindow(eventQueue);
+	PathArgument inputPathArg(u8"inPath", u8"path to the input file");
+	commandLineParser.AddPositionalArgument(inputPathArg);
 
-	if(args.GetNumberOfElements() == 1)
-		pMainWnd->OpenFile(FileSystem::FileSystemsManager::Instance().OSFileSystem().FromNativePath(args[0]));
+	SubCommandArgument subCommandArgument(u8"command", u8"The command that should be executed");
 
-	pMainWnd->Show();
+	Group json(u8"json", u8"Dump world as JSON");
+	subCommandArgument.AddCommand(json);
 
-	eventQueue.ProcessEvents();
+	commandLineParser.AddPositionalArgument(subCommandArgument);
+
+	if(!commandLineParser.Parse(args))
+	{
+		stdErr << commandLineParser.GetErrorText() << endl;
+		return EXIT_FAILURE;
+	}
+
+	if(commandLineParser.IsHelpActivated())
+	{
+		commandLineParser.PrintHelp();
+		return EXIT_SUCCESS;
+	}
+
+	const MatchResult& matchResult = commandLineParser.ParseResult();
+	FileSystem::Path inputPath = inputPathArg.Value(matchResult);
+	FileInputStream fileInputStream(inputPath);
+	UniquePointer<World> world = LoadWorld(fileInputStream);
+
+	if(matchResult.IsActivated(json))
+		dump_json(*world);
+
 	return EXIT_SUCCESS;
 }

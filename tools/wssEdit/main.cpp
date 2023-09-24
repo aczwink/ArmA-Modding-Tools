@@ -17,6 +17,7 @@
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <libBISMod.hpp>
+#include <StdXX.hpp>
 using namespace StdXX;
 using namespace StdXX::FileSystem;
 using namespace StdXX::Multimedia;

@@ -17,6 +17,7 @@
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <StdXXCore.hpp>
+#include <StdXXFileSystem.hpp>
 #include "P3DLod.hpp"
 #include "P3DModelInfo.hpp"
 
