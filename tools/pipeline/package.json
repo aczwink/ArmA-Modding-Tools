@@ -1,0 +1,22 @@
+{
+  "name": "arma-pipeline",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/main.js",
+  "bin": "dist/main.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "Amir Czwink",
+  "license": "AGPL-3.0-or-later",
+  "devDependencies": {
+    "@types/node": "^20.6.3",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "glob": "^10.3.5",
+    "yaml": "^2.3.2"
+  }
+}

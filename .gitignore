@@ -1,0 +1,3 @@
+tools/pipeline/dist
+tools/pipeline/node_modules
+tools/pipeline/package-lock.json
