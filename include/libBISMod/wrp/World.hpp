@@ -29,6 +29,7 @@ namespace libBISMod
 
 		//Methods
 		virtual StdXX::String GetModelFilePath() const = 0;
+		virtual void SetModelFilePath(const StdXX::String& modelFilePath) = 0;
 	};
 
 	class World
@@ -39,8 +40,14 @@ namespace libBISMod
 
 		//Methods
 		virtual uint32 GetNumberOfObjects() const = 0;
-		virtual const WorldObject& GetObject(uint32 index) const = 0;
+		virtual WorldObject& GetObject(uint32 index) = 0;
 		virtual void Write(StdXX::OutputStream& outputStream) const = 0;
+
+		//Inline
+		inline const WorldObject& GetObject(uint32 index) const
+		{
+			return const_cast<World*>(this)->GetObject(index);
+		}
 	};
 
 	World* LoadWorld(StdXX::SeekableInputStream& inputStream);

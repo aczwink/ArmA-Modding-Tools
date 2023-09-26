@@ -36,6 +36,8 @@ public:
 
 	//Methods
 	StdXX::String GetModelFilePath() const override;
+
+	void SetModelFilePath(const StdXX::String &modelFilePath) override;
 };
 
 class World_4WVR : public libBISMod::World
@@ -46,7 +48,7 @@ public:
 
 	//Methods
 	uint32 GetNumberOfObjects() const override;
-	const libBISMod::WorldObject &GetObject(uint32 index) const override;
+	libBISMod::WorldObject &GetObject(uint32 index) override;
 	void Write(StdXX::OutputStream &outputStream) const override;
 
 private:
