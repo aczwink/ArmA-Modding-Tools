@@ -256,10 +256,10 @@ void RapParser::ParseValue(const String& identifier, RapNode& parent)
 	if(this->Accept(TOKEN_TEXT, tokenValue2) || this->Accept(TOKEN_COLON, tokenValue2))
 	{
 		node.SetVariableType(RAP_VARIABLETYPE_STRING);
-		tokenValue += tokenValue2;
+		tokenValue += u8" " + tokenValue2;
 
 		while(this->Accept(TOKEN_INT_LITERAL, tokenValue2) || this->Accept(TOKEN_FLOAT_LITERAL, tokenValue2) || this->Accept(TOKEN_TEXT, tokenValue2))
-			tokenValue += tokenValue2;
+			tokenValue += u8" " + tokenValue2;
 
 		node.SetValue(tokenValue);
 
