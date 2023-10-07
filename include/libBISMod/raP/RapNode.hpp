@@ -21,32 +21,50 @@
 #include <StdXXFileSystem.hpp>
 //Local
 #include "Definitions.hpp"
-#include "CRapArrayValue.hpp"
+#include "RapArrayValue.hpp"
 
 namespace libBISMod
 {
 	//Forward Declarations
-	class CRapTree;
-	struct SRapErrorContext;
+	class RapTree;
+	struct RapParseContext;
 
-	class CRapNode
+	class RapNode
 	{
-		friend void SaveRawRapTreeToFile(const StdXX::FileSystem::Path& path, CRapTree *pRootNode);
 	public:
+		//Properties
+		inline const StdXX::DynamicArray<RapArrayValue>& ArrayValue() const
+		{
+			ASSERT_EQUALS(RapPacketType::RAP_PACKETTYPE_ARRAY, this->packetType);
+			return this->arrayValues;
+		}
+
+		inline const StdXX::DynamicArray<RapNode>& ChildNodes() const
+		{
+			ASSERT_EQUALS(RapPacketType::RAP_PACKETTYPE_CLASS, this->packetType);
+			return this->embeddedPackets;
+		}
+
 		//Methods
-		uint32 AddArrayValue(const CRapArrayValue &refValue);
-		uint32 AddNode(const CRapNode &refNode);
-		CRapArrayValue &GetArrayValue(uint32 index);
-		CRapNode &GetNode(uint32 index);
+		uint32 AddArrayValue(const RapArrayValue &refValue);
+		uint32 AddNode(const RapNode &refNode);
+		RapArrayValue &GetArrayValue(uint32 index);
+		RapNode &GetNode(uint32 index);
 		void SetInheritedClassName(StdXX::String name);
 		void SetName(StdXX::String name);
-		void SetPacketType(ERapPacketType type);
+		void SetPacketType(RapPacketType type);
 		void SetValue(int32 i);
 		void SetValue(float32 f);
 		void SetValue(StdXX::String str);
 		void SetVariableType(ERapVariableType type);
 
 		//Inline
+		inline const RapNode& GetChildNode(uint32 index) const
+		{
+			ASSERT_EQUALS(RapPacketType::RAP_PACKETTYPE_CLASS, this->packetType);
+			return this->embeddedPackets[index];
+		}
+
 		inline StdXX::String GetInheritedClassName() const
 		{
 			return this->inheritedClassname;
@@ -62,7 +80,7 @@ namespace libBISMod
 			return this->embeddedPackets.GetNumberOfElements();
 		}
 
-		inline ERapPacketType GetPacketType() const
+		inline RapPacketType GetPacketType() const
 		{
 			return this->packetType;
 		}
@@ -70,11 +88,6 @@ namespace libBISMod
 		inline ERapVariableType GetVariableType() const
 		{
 			return this->varType;
-		}
-
-		inline void GetVariableValueArray(StdXX::DynamicArray<CRapArrayValue> &refArray)
-		{
-			refArray = this->arrayValues;
 		}
 
 		inline float32 GetVariableValueFloat() const
@@ -95,9 +108,9 @@ namespace libBISMod
 	private:
 		//State
 		StdXX::String name;
-		ERapPacketType packetType;
-		StdXX::DynamicArray<CRapArrayValue> arrayValues; //Only for array packet type
-		StdXX::DynamicArray<CRapNode> embeddedPackets; //Only for class packet type
+		RapPacketType packetType;
+		StdXX::DynamicArray<RapArrayValue> arrayValues; //Only for array packet type
+		StdXX::DynamicArray<RapNode> embeddedPackets; //Only for class packet type
 		StdXX::String inheritedClassname; //Only for class packet type
 		ERapVariableType varType; //Only for variable packet type
 		int32 iValue; //Only for variable packet type
@@ -105,16 +118,30 @@ namespace libBISMod
 		StdXX::String strValue; //Only for variable packet type
 	};
 
-	class CRapTree : public CRapNode
+	class RapTree : public RapNode
 	{
-		friend void RapParse(StdXX::String source, StdXX::String rootName, CRapTree *pRootNode, SRapErrorContext *pCtx);
-		friend void ReadRapTreeFromFile(const StdXX::FileSystem::Path& path, CRapTree *pRootNode);
-		friend void SaveRapTreeToFile(const StdXX::FileSystem::Path& path, CRapTree *pRootNode);
-		friend void SaveRawRapTreeToFile(const StdXX::FileSystem::Path& path, CRapTree *pRootNode);
+	public:
+		//Properties
+		inline const StdXX::BinaryTreeMap<StdXX::String, uint32>& EnumTable() const
+		{
+			return this->enumTable;
+		}
+
+		//Inline
+		inline void DefineEnumValue(const StdXX::String& enumName, uint32 value)
+		{
+			this->enumTable[enumName] = value;
+			this->enumCasingTable[enumName.ToLowercase()] = enumName;
+		}
+
+		inline bool IsEnumDefined(const StdXX::String& enumName) const
+		{
+			return this->enumCasingTable.Contains(enumName.ToLowercase());
+		}
+
 	private:
 		//State
-		StdXX::BinaryTreeMap<StdXX::String, uint32> intDefs;
-		StdXX::BinaryTreeMap<StdXX::String, float32> floatDefs;
-		StdXX::BinaryTreeMap<uint32, StdXX::String> stringDefs;
+		StdXX::BinaryTreeMap<StdXX::String, uint32> enumTable;
+		StdXX::BinaryTreeMap<StdXX::String, StdXX::String> enumCasingTable;
 	};
 }

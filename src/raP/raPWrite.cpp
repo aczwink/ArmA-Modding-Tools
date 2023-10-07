@@ -26,44 +26,14 @@ using namespace StdXX;
 using namespace StdXX::FileSystem;
 
 //Local prototypes
-static void WriteCompressedInteger(int32 value, FileOutputStream &file);
-static void WriteIndexedString(const String &str, uint32 &nextStringId, BinaryTreeMap<uint32, String> &strings, FileOutputStream &file);
+static void WriteRapString(const String& string, const RapTree& rootNode, BinaryTreeMap<String, uint32>& dictionary, OutputStream& outputStream);
 
 //Local functions
-static void WriteRapArray(DynamicArray<CRapArrayValue> &arrayValues, BinaryTreeMap<uint32, String> &strings, uint32 &nextStringId, FileOutputStream &file)
+static void WriteCompressedInteger(uint32 value, OutputStream& outputStream)
 {
-	DataWriter dataWriter(false, file);
+	DataWriter dataWriter(false, outputStream);
 
-	for(uint32 i = 0; i < arrayValues.GetNumberOfElements(); i++)
-	{
-		dataWriter.WriteByte(arrayValues[i].GetType());
-		switch(arrayValues[i].GetType())
-		{
-			case RAP_ARRAYTYPE_STRING:
-				WriteIndexedString(arrayValues[i].GetValueString(), nextStringId, strings, file);
-				break;
-			case RAP_ARRAYTYPE_FLOAT:
-				dataWriter.WriteFloat32(arrayValues[i].GetValueFloat());
-				break;
-			case RAP_ARRAYTYPE_INT:
-				dataWriter.WriteInt32(arrayValues[i].GetValueInt());
-				break;
-			case RAP_ARRAYTYPE_EMBEDDEDARRAY:
-			{
-				DynamicArray<CRapArrayValue> subArray;
-
-				arrayValues[i].GetValueArray(subArray);
-				WriteCompressedInteger(subArray.GetNumberOfElements(), file);
-				WriteRapArray(subArray, strings, nextStringId, file);
-			}
-				break;
-		}
-	}
-}
-
-static void WriteCompressedInteger(int32 value, FileOutputStream &file)
-{
-	DataWriter dataWriter(false, file);
+	ASSERT(value <= Signed<int16>::Max(), u8"TODO: can't write that high value. implement using loop?!")
 
 	if(value < 0x80)
 	{
@@ -76,64 +46,89 @@ static void WriteCompressedInteger(int32 value, FileOutputStream &file)
 	}
 }
 
-static void WriteIndexedString(const String &str, uint32 &nextStringId, BinaryTreeMap<uint32, String> &strings, FileOutputStream &file)
+static void WriteIndexedString(const String& string, BinaryTreeMap<String, uint32>& dictionary, OutputStream& outputStream)
 {
-	Optional<uint32> key;
-	for(const auto& entry : strings)
+	auto it = dictionary.Find(string);
+	if(it == dictionary.end())
 	{
-		if(str == entry.value)
-		{
-			key = entry.key;
-			break;
-		}
-	}
+		uint32 nextStringId = dictionary.GetNumberOfElements();
+		dictionary[string] = nextStringId;
 
-	if(key.HasValue())
-	{
-		WriteCompressedInteger(*key, file);
+		WriteCompressedInteger(nextStringId, outputStream);
+
+		TextWriter textWriter(outputStream, TextCodecType::Latin1);
+		textWriter.WriteStringZeroTerminated(string);
 	}
 	else
 	{
-		strings[nextStringId] = str;
-		auto it = strings.Find(nextStringId++);
-		WriteCompressedInteger((*it).key, file);
-		file.WriteBytes((*it).value.GetRawZeroTerminatedData(), (*it).value.GetLength()+1);
+		WriteCompressedInteger(it.operator*().value, outputStream);
 	}
 }
 
-static bool WriteRapPacket(CRapNode *pNode, BinaryTreeMap<uint32, String> &strings, uint32 &nextStringId, FileOutputStream &file)
+static void WriteRapArray(DynamicArray<RapArrayValue> &arrayValues, BinaryTreeMap<String, uint32>& dictionary, OutputStream& file)
 {
 	DataWriter dataWriter(false, file);
+
+	for(uint32 i = 0; i < arrayValues.GetNumberOfElements(); i++)
+	{
+		dataWriter.WriteByte(arrayValues[i].GetType());
+		switch(arrayValues[i].GetType())
+		{
+			case RAP_ARRAYTYPE_STRING:
+				WriteIndexedString(arrayValues[i].GetValueString(), dictionary, file);
+				break;
+			case RAP_ARRAYTYPE_FLOAT:
+				dataWriter.WriteFloat32(arrayValues[i].GetValueFloat());
+				break;
+			case RAP_ARRAYTYPE_INT:
+				dataWriter.WriteInt32(arrayValues[i].GetValueInt());
+				break;
+			case RAP_ARRAYTYPE_EMBEDDEDARRAY:
+			{
+				DynamicArray<RapArrayValue> subArray;
+
+				arrayValues[i].GetValueArray(subArray);
+				WriteCompressedInteger(subArray.GetNumberOfElements(), file);
+				WriteRapArray(subArray, dictionary, file);
+			}
+				break;
+		}
+	}
+}
+
+static bool WriteRapPacket(const RapNode *pNode, const RapTree& rootNode, BinaryTreeMap<String, uint32>& dictionary, OutputStream& outputStream)
+{
+	DataWriter dataWriter(false, outputStream);
 
 	switch(pNode->GetPacketType())
 	{
 		case RAP_PACKETTYPE_CLASS:
 			dataWriter.WriteByte(RAP_PACKETTYPE_CLASS);
-			WriteIndexedString(pNode->GetName(), nextStringId, strings, file);
+			WriteIndexedString(pNode->GetName(), dictionary, outputStream);
 			if(pNode->GetInheritedClassName().IsEmpty())
 			{
 				dataWriter.WriteByte(0);
 			}
 			else
 			{
-				file.WriteBytes(pNode->GetInheritedClassName().GetRawZeroTerminatedData(), pNode->GetInheritedClassName().GetLength()+1);
+				outputStream.WriteBytes(pNode->GetInheritedClassName().GetRawZeroTerminatedData(), pNode->GetInheritedClassName().GetLength()+1);
 			}
-			WriteCompressedInteger(pNode->GetNumberOfEmbeddedPackages(), file);
+			WriteCompressedInteger(pNode->GetNumberOfEmbeddedPackages(), outputStream);
 
 			for(uint32 i = 0; i < pNode->GetNumberOfEmbeddedPackages(); i++)
 			{
-				WriteRapPacket(&pNode->GetNode(i), strings, nextStringId, file);
+				WriteRapPacket(&pNode->GetChildNode(i), rootNode, dictionary, outputStream);
 			}
 			break;
 		case RAP_PACKETTYPE_VARIABLE:
 			dataWriter.WriteByte(RAP_PACKETTYPE_VARIABLE);
 			dataWriter.WriteByte(pNode->GetVariableType());
-			WriteIndexedString(pNode->GetName(), nextStringId, strings, file);
+			WriteIndexedString(pNode->GetName(), dictionary, outputStream);
 
 			switch(pNode->GetVariableType())
 			{
 				case RAP_VARIABLETYPE_STRING:
-					WriteIndexedString(pNode->GetVariableValueString(), nextStringId, strings, file);
+					WriteRapString(pNode->GetVariableValueString(), rootNode, dictionary, outputStream);
 					break;
 				case RAP_VARIABLETYPE_FLOAT:
 					dataWriter.WriteFloat32(pNode->GetVariableValueFloat());
@@ -145,14 +140,14 @@ static bool WriteRapPacket(CRapNode *pNode, BinaryTreeMap<uint32, String> &strin
 			break;
 		case RAP_PACKETTYPE_ARRAY:
 		{
-			DynamicArray<CRapArrayValue> arrayValues;
+			DynamicArray<RapArrayValue> arrayValues;
 
 			dataWriter.WriteByte(RAP_PACKETTYPE_ARRAY);
-			WriteIndexedString(pNode->GetName(), nextStringId, strings, file);
+			WriteIndexedString(pNode->GetName(), dictionary, outputStream);
 
-			pNode->GetVariableValueArray(arrayValues);
-			WriteCompressedInteger(arrayValues.GetNumberOfElements(), file);
-			WriteRapArray(arrayValues, strings, nextStringId, file);
+			arrayValues = pNode->ArrayValue();
+			WriteCompressedInteger(arrayValues.GetNumberOfElements(), outputStream);
+			WriteRapArray(arrayValues, dictionary, outputStream);
 		}
 			break;
 	}
@@ -160,17 +155,28 @@ static bool WriteRapPacket(CRapNode *pNode, BinaryTreeMap<uint32, String> &strin
 	return true;
 }
 
-//Namespace Functions
-void libBISMod::SaveRapTreeToFile(const Path& path, CRapTree *pRootNode)
+static void WriteRapString(const String& string, const RapTree& rootNode, BinaryTreeMap<String, uint32>& dictionary, OutputStream& outputStream)
 {
-	BinaryTreeMap<uint32, String> strings;
-	uint32 nextStringId = 0;
+	WriteIndexedString(rootNode.IsEnumDefined(string) ? string.ToLowercase() : string, dictionary, outputStream);
+}
 
-	FileOutputStream file(path);
+//Namespace Functions
+void libBISMod::SaveRapTreeToStream(OutputStream &outputStream, const RapTree& rootNode)
+{
+	BinaryTreeMap<String, uint32> dictionary;
 
-	file.WriteBytes(RAP_HEADER_SIGNATURE, RAP_HEADER_SIGNATURELENGTH);
-	file.WriteBytes(RAP_HEADER_VERSION, RAP_HEADER_VERSIONLENGTH);
+	outputStream.WriteBytes(RAP_HEADER_SIGNATURE, RAP_HEADER_SIGNATURELENGTH);
+	outputStream.WriteBytes(RAP_HEADER_VERSION, RAP_HEADER_VERSIONLENGTH);
 
-	WriteRapPacket(pRootNode, strings, nextStringId, file);
-	pRootNode->stringDefs = strings;
+	WriteRapPacket(&rootNode, rootNode, dictionary, outputStream);
+
+	DataWriter dataWriter(false, outputStream);
+	TextWriter textWriter(outputStream, TextCodecType::ASCII);
+
+	dataWriter.WriteUInt32(rootNode.EnumTable().GetNumberOfElements());
+	for(const auto& entry : rootNode.EnumTable())
+	{
+		textWriter.WriteStringZeroTerminated(entry.key.ToLowercase());
+		dataWriter.WriteUInt32(entry.value);
+	}
 }

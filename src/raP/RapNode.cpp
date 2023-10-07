@@ -17,63 +17,63 @@
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
 //Class header
-#include <libBISMod/raP/CRapNode.hpp>
+#include <libBISMod/raP/RapNode.hpp>
 //Namespaces
 using namespace libBISMod;
 using namespace StdXX;
 
 //Public methods
-uint32 CRapNode::AddArrayValue(const CRapArrayValue &refValue)
+uint32 RapNode::AddArrayValue(const RapArrayValue &refValue)
 {
 	return this->arrayValues.Push(refValue);
 }
 
-uint32 CRapNode::AddNode(const CRapNode &refNode)
+uint32 RapNode::AddNode(const RapNode &refNode)
 {
 	return this->embeddedPackets.Push(refNode);
 }
 
-CRapArrayValue &CRapNode::GetArrayValue(uint32 index)
+RapArrayValue &RapNode::GetArrayValue(uint32 index)
 {
 	return this->arrayValues[index];
 }
 
-CRapNode &CRapNode::GetNode(uint32 index)
+RapNode &RapNode::GetNode(uint32 index)
 {
 	return this->embeddedPackets[index];
 }
 
-void CRapNode::SetInheritedClassName(String name)
+void RapNode::SetInheritedClassName(String name)
 {
 	this->inheritedClassname = name;
 }
 
-void CRapNode::SetName(String name)
+void RapNode::SetName(String name)
 {
 	this->name = name;
 }
 
-void CRapNode::SetPacketType(ERapPacketType type)
+void RapNode::SetPacketType(RapPacketType type)
 {
 	this->packetType = type;
 }
 
-void CRapNode::SetValue(int32 i)
+void RapNode::SetValue(int32 i)
 {
 	this->iValue = i;
 }
 
-void CRapNode::SetValue(float32 f)
+void RapNode::SetValue(float32 f)
 {
 	this->fValue = f;
 }
 
-void CRapNode::SetValue(String str)
+void RapNode::SetValue(String str)
 {
 	this->strValue = str;
 }
 
-void CRapNode::SetVariableType(ERapVariableType type)
+void RapNode::SetVariableType(ERapVariableType type)
 {
 	this->varType = type;
 }

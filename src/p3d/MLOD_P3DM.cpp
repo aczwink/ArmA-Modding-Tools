@@ -31,13 +31,6 @@ MLOD_P3DM_Lod::~MLOD_P3DM_Lod()
 	free(this->lodData.pVertices);
 	free(this->lodData.pNormals);
 
-	for(uint32 i = 0; i < this->lodData.nPolygons; i++)
-	{
-		free(this->lodData.pPolygons[i].pTextureName);
-		free(this->lodData.pPolygons[i].pMaterialName);
-	}
-	free(this->lodData.pPolygons);
-
 	for(uint32 i = 0; i < this->nTags; i++)
 	{
 		free(this->lodData.pTags[i].pTagName);
@@ -47,6 +40,21 @@ MLOD_P3DM_Lod::~MLOD_P3DM_Lod()
 }
 
 //Public methods
+uint32 MLOD_P3DM_Lod::GetNumberOfPolygons() const
+{
+	return this->lodData.polygons.GetNumberOfElements();
+}
+
+void MLOD_P3DM_Lod::GetPolygon(uint32 index, P3DPolygon &polygon) const
+{
+	polygon.texturePath = this->lodData.polygons[index].texturePath;
+}
+
+LodType MLOD_P3DM_Lod::GetType() const
+{
+	return LodType::MLOD_P3DM;
+}
+
 void MLOD_P3DM_Lod::Write(OutputStream &outputStream) const
 {
 	uint32 size;
@@ -60,7 +68,7 @@ void MLOD_P3DM_Lod::Write(OutputStream &outputStream) const
 
 	dataWriter.WriteUInt32(this->lodData.nVertices);
 	dataWriter.WriteUInt32(this->lodData.nNormals);
-	dataWriter.WriteUInt32(this->lodData.nPolygons);
+	dataWriter.WriteUInt32(this->lodData.polygons.GetNumberOfElements());
 	dataWriter.WriteUInt32(this->lodData.unknownFlags);
 
 	size = this->lodData.nVertices * sizeof(*this->lodData.pVertices);
@@ -69,15 +77,13 @@ void MLOD_P3DM_Lod::Write(OutputStream &outputStream) const
 	size = this->lodData.nNormals * sizeof(*this->lodData.pNormals);
 	dataWriter.WriteBytes(this->lodData.pNormals, size);
 
-	for(uint32 i = 0; i < this->lodData.nPolygons; i++)
+	for(const auto& polygon : this->lodData.polygons)
 	{
-		dataWriter.WriteUInt32(this->lodData.pPolygons[i].type);
-		dataWriter.WriteBytes(&this->lodData.pPolygons[i].vertexTables, sizeof(this->lodData.pPolygons[i].vertexTables));
-		dataWriter.WriteUInt32(this->lodData.pPolygons[i].flags);
-		textWriter.WriteString(this->lodData.pPolygons[i].pTextureName);
-		dataWriter.WriteByte(0);
-		textWriter.WriteString(this->lodData.pPolygons[i].pMaterialName);
-		dataWriter.WriteByte(0);
+		dataWriter.WriteUInt32(polygon.type);
+		dataWriter.WriteBytes(&polygon.vertexTables, sizeof(polygon.vertexTables));
+		dataWriter.WriteUInt32(polygon.flags);
+		textWriter.WriteStringZeroTerminated(polygon.texturePath);
+		textWriter.WriteStringZeroTerminated(polygon.materialName);
 	}
 
 	dataWriter.WriteBytes(&this->lodData.tagSignature, sizeof(this->lodData.tagSignature));
@@ -105,7 +111,7 @@ void MLOD_P3DM_Lod::Read(InputStream &inputStream)
 
 	this->lodData.nVertices = dataReader.ReadUInt32();
 	this->lodData.nNormals = dataReader.ReadUInt32();
-	this->lodData.nPolygons = dataReader.ReadUInt32();
+	uint32 nPolygons = dataReader.ReadUInt32();
 	this->lodData.unknownFlags = dataReader.ReadUInt32();
 
 	size = this->lodData.nVertices * sizeof(*this->lodData.pVertices);
@@ -116,20 +122,15 @@ void MLOD_P3DM_Lod::Read(InputStream &inputStream)
 	this->lodData.pNormals = (Math::Vector3S *)malloc(size);
 	dataReader.ReadBytes(this->lodData.pNormals, size);
 
-	this->lodData.pPolygons = (SP3DMPolygon *)malloc(this->lodData.nPolygons * sizeof(*this->lodData.pPolygons));
-	for(uint32 i = 0; i < this->lodData.nPolygons; i++)
+	this->lodData.polygons.Resize(nPolygons);
+	for(auto& polygon : this->lodData.polygons)
 	{
-		this->lodData.pPolygons[i].type = dataReader.ReadUInt32();
-		dataReader.ReadBytes(&this->lodData.pPolygons[i].vertexTables, sizeof(this->lodData.pPolygons[i].vertexTables));
-		this->lodData.pPolygons[i].flags = dataReader.ReadUInt32();
-		buffer = textReader.ReadZeroTerminatedString();
-		this->lodData.pPolygons[i].pTextureName = (char *)malloc(buffer.GetLength()+1);
-		MemCopy(this->lodData.pPolygons[i].pTextureName, buffer.GetRawZeroTerminatedData(), buffer.GetLength());
-		this->lodData.pPolygons[i].pTextureName[buffer.GetLength()] = '\0';
-		buffer = textReader.ReadZeroTerminatedString();
-		this->lodData.pPolygons[i].pMaterialName = (char *)malloc(buffer.GetLength()+1);
-		MemCopy(this->lodData.pPolygons[i].pMaterialName, buffer.GetRawZeroTerminatedData(), buffer.GetLength());
-		this->lodData.pPolygons[i].pMaterialName[buffer.GetLength()] = '\0';
+		polygon.type = dataReader.ReadUInt32();
+		dataReader.ReadBytes(&polygon.vertexTables, sizeof(polygon.vertexTables));
+		polygon.flags = dataReader.ReadUInt32();
+
+		polygon.texturePath = textReader.ReadZeroTerminatedString();
+		polygon.materialName = textReader.ReadZeroTerminatedString();
 	}
 
 	dataReader.ReadBytes(&this->lodData.tagSignature, sizeof(this->lodData.tagSignature));

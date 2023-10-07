@@ -26,21 +26,6 @@
 
 namespace libBISMod
 {
-	struct SP3DMPolygon
-	{
-		uint32 type;
-		struct
-		{
-			uint32 verticesIndex;
-			uint32 normalsIndex;
-			float u;
-			float v;
-		} vertexTables[4];
-		uint32 flags;
-		char *pTextureName; //zero-terminated
-		char *pMaterialName; //zero-terminated
-	};
-
 	struct SP3DMTag
 	{
 		bool active;
@@ -53,11 +38,10 @@ namespace libBISMod
 	{
 		uint32 nVertices;
 		uint32 nNormals;
-		uint32 nPolygons;
 		uint32 unknownFlags;
 		SVertex *pVertices;
 		StdXX::Math::Vector3S *pNormals;
-		SP3DMPolygon *pPolygons;
+		StdXX::DynamicArray<MLOD_Polygon> polygons;
 		char tagSignature[4];
 		SP3DMTag *pTags;
 		float resolution;
@@ -79,6 +63,9 @@ namespace libBISMod
 		~MLOD_P3DM_Lod();
 
 		//Methods
+		uint32 GetNumberOfPolygons() const override;
+		void GetPolygon(uint32 index, P3DPolygon &polygon) const override;
+		LodType GetType() const override;
 		void Write(StdXX::OutputStream &outputStream) const override;
 
 	private:

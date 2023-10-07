@@ -22,7 +22,7 @@
 
 namespace libBISMod
 {
-	class CRapArrayValue
+	class RapArrayValue
 	{
 	public:
 		//Methods
@@ -30,7 +30,7 @@ namespace libBISMod
 		void SetValue(int32 i);
 		void SetValue(float32 f);
 		void SetValue(StdXX::String str);
-		void SetValue(const StdXX::DynamicArray<CRapArrayValue> &refArray);
+		void SetValue(const StdXX::DynamicArray<RapArrayValue> &refArray);
 
 		//Inline
 		inline ERapArrayType GetType() const
@@ -38,7 +38,7 @@ namespace libBISMod
 			return this->type;
 		}
 
-		inline void GetValueArray(StdXX::DynamicArray<CRapArrayValue> &refArray) const
+		inline void GetValueArray(StdXX::DynamicArray<RapArrayValue> &refArray) const
 		{
 			refArray = this->embeddedArray;
 		}
@@ -64,6 +64,6 @@ namespace libBISMod
 		float32 fValue;
 		int32 iValue;
 		StdXX::String str;
-		StdXX::DynamicArray<CRapArrayValue> embeddedArray;
+		StdXX::DynamicArray<RapArrayValue> embeddedArray;
 	};
 }

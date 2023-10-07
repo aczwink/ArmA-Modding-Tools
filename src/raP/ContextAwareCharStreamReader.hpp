@@ -16,34 +16,13 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
-//Class header
-#include <libBISMod/raP/CRapArrayValue.hpp>
-//Namespaces
-using namespace libBISMod;
+#pragma once
+#include <StdXXStreams.hpp>
 using namespace StdXX;
 
-//Public methods
-void CRapArrayValue::SetType(ERapArrayType type)
+class ContextAwareCharStreamReader : public CharStreamReader
 {
-	this->type = type;
-}
-
-void CRapArrayValue::SetValue(int32 i)
-{
-	this->iValue = i;
-}
-
-void CRapArrayValue::SetValue(float32 f)
-{
-	this->fValue = f;
-}
-
-void CRapArrayValue::SetValue(String str)
-{
-	this->str = str;
-}
-
-void CRapArrayValue::SetValue(const DynamicArray<CRapArrayValue> &refArray)
-{
-	this->embeddedArray = refArray;
-}
+public:
+	//Abstract
+	virtual const libBISMod::RapParseContext& QueryCurrentContext() const = 0;
+};

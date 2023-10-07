@@ -26,14 +26,14 @@ using namespace StdXX;
 using namespace StdXX::FileSystem;
 
 //Local prototypes
-static void ReadArrayValue(CRapArrayValue *pValue, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file);
+static void ReadArrayValue(RapArrayValue *pValue, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file);
 static uint32 ReadCompressedInteger(FileInputStream &file);
 static uint32 ReadIndexedString(BinaryTreeMap<uint32, String> &stringList, FileInputStream &file);
-static bool ReadNextPacket(CRapNode *pNode, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file);
-static void ReadVariable(CRapNode *pNode, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file);
+static bool ReadNextPacket(RapNode *pNode, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file);
+static void ReadVariable(RapNode *pNode, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file);
 
 //Local functions
-static void ReadArray(CRapNode *pNode, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file)
+static void ReadArray(RapNode *pNode, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file)
 {
 	uint32 nElements, index;
 
@@ -43,12 +43,12 @@ static void ReadArray(CRapNode *pNode, BinaryTreeMap<uint32, String> &stringList
 
 	for(uint32 i = 0; i < nElements; i++)
 	{
-		index = pNode->AddArrayValue(CRapArrayValue());
+		index = pNode->AddArrayValue(RapArrayValue());
 		ReadArrayValue(&pNode->GetArrayValue(index), stringList, file);
 	}
 }
 
-static void ReadArrayValue(CRapArrayValue *pValue, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file)
+static void ReadArrayValue(RapArrayValue *pValue, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file)
 {
 	DataReader dataReader(false, file);
 
@@ -84,7 +84,7 @@ static void ReadArrayValue(CRapArrayValue *pValue, BinaryTreeMap<uint32, String>
 			break;
 		case RAP_ARRAYTYPE_EMBEDDEDARRAY:
 		{
-			DynamicArray<CRapArrayValue> embeddedArray;
+			DynamicArray<RapArrayValue> embeddedArray;
 			uint32 nElements, index;
 
 			pValue->SetType(RAP_ARRAYTYPE_EMBEDDEDARRAY);
@@ -92,7 +92,7 @@ static void ReadArrayValue(CRapArrayValue *pValue, BinaryTreeMap<uint32, String>
 
 			for(uint32 i = 0; i < nElements; i++)
 			{
-				index = embeddedArray.Push(CRapArrayValue());
+				index = embeddedArray.Push(RapArrayValue());
 				ReadArrayValue(&embeddedArray[index],  stringList, file);
 			}
 			pValue->SetValue(embeddedArray);
@@ -101,7 +101,7 @@ static void ReadArrayValue(CRapArrayValue *pValue, BinaryTreeMap<uint32, String>
 	}
 }
 
-static void ReadClass(CRapNode *pNode, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file)
+static void ReadClass(RapNode *pNode, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file)
 {
 	TextReader textReader(file, TextCodecType::ASCII);
 
@@ -114,7 +114,7 @@ static void ReadClass(CRapNode *pNode, BinaryTreeMap<uint32, String> &stringList
 
 	for(uint32 i = 0; i < nImbeddedPackets; i++)
 	{
-		index = pNode->AddNode(CRapNode());
+		index = pNode->AddNode(RapNode());
 		ReadNextPacket(&pNode->GetNode(index), stringList, file);
 	}
 }
@@ -123,12 +123,12 @@ static uint32 ReadCompressedInteger(FileInputStream &file)
 {
 	DataReader dataReader(false, file);
 
-	uint32 value;
-
-	value = dataReader.ReadByte();
+	uint32 value = dataReader.ReadByte();
 	if(value & 0x80)
 	{
-		value += (dataReader.ReadByte() - 1) * 0x80;
+		uint8 extra = dataReader.ReadByte();
+		ASSERT((extra & 0x80) == 0, u8"TODO: implement long compressed integers")
+		value += (extra - 1) * 0x80;
 	}
 
 	return value;
@@ -138,7 +138,7 @@ static uint32 ReadIndexedString(BinaryTreeMap<uint32, String> &stringList, FileI
 {
 	uint32 index;
 
-	TextReader textReader(file, TextCodecType::ASCII);
+	TextReader textReader(file, TextCodecType::Latin1);
 
 	index = ReadCompressedInteger(file);
 	if(!stringList.Contains(index))
@@ -149,7 +149,7 @@ static uint32 ReadIndexedString(BinaryTreeMap<uint32, String> &stringList, FileI
 	return index;
 }
 
-static bool ReadNextPacket(CRapNode *pNode, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file)
+static bool ReadNextPacket(RapNode *pNode, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file)
 {
 	DataReader dataReader(false, file);
 
@@ -173,7 +173,7 @@ static bool ReadNextPacket(CRapNode *pNode, BinaryTreeMap<uint32, String> &strin
 	return true;
 }
 
-static void ReadVariable(CRapNode *pNode, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file)
+static void ReadVariable(RapNode *pNode, BinaryTreeMap<uint32, String> &stringList, FileInputStream &file)
 {
 	DataReader dataReader(false, file);
 
@@ -215,11 +215,10 @@ static void ReadVariable(CRapNode *pNode, BinaryTreeMap<uint32, String> &stringL
 }
 
 //Namespace Functions
-void libBISMod::ReadRapTreeFromFile(const Path& path, CRapTree *pRootNode)
+void libBISMod::ReadRapTreeFromFile(const Path& path, RapTree *pRootNode)
 {
 	char signature[RAP_HEADER_SIGNATURELENGTH];
 	char version[RAP_HEADER_VERSIONLENGTH];
-	uint32 nDefs;
 
 	FileInputStream file(path);
 	DataReader dataReader(false, file);
@@ -236,19 +235,17 @@ void libBISMod::ReadRapTreeFromFile(const Path& path, CRapTree *pRootNode)
 		NOT_IMPLEMENTED_ERROR; //TODO: implement me
 	}
 
-	ReadNextPacket(pRootNode, pRootNode->stringDefs, file);
-	if(file.QueryRemainingBytes())
-	{
-		String buffer;
-		uint32 value;
+	BinaryTreeMap<uint32, String> dictionary;
+	ReadNextPacket(pRootNode, dictionary, file);
 
-		nDefs = dataReader.ReadUInt32();
-		for(uint32 i = 0; i < nDefs; i++)
-		{
-			buffer = textReader.ReadZeroTerminatedString();
-			value = dataReader.ReadUInt32();
-			pRootNode->intDefs[buffer] = value;
-		}
+	//enum table
+	uint32 nDefs = dataReader.ReadUInt32();
+	for(uint32 i = 0; i < nDefs; i++)
+	{
+		String buffer = textReader.ReadZeroTerminatedString();
+		uint32 value = dataReader.ReadUInt32();
+
+		pRootNode->DefineEnumValue(buffer, value);
 	}
 
 	if(file.QueryRemainingBytes())

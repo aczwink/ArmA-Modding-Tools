@@ -119,11 +119,7 @@ namespace libBISMod
 		StdXX::Math::Vector3S maxPos;
 		StdXX::Math::Vector3S autoCenterPos;
 		float unknownFloat3;
-		struct
-		{
-			uint32 nTextures;
-			char **ppTextures;
-		} textures;
+		StdXX::DynamicArray<StdXX::String> textures;
 		SLodEdges lodEdges;
 		struct
 		{
@@ -177,6 +173,9 @@ namespace libBISMod
 		~ODOL7Lod();
 
 		//Methods
+		uint32 GetNumberOfPolygons() const override;
+		void GetPolygon(uint32 index, P3DPolygon &polygon) const override;
+		LodType GetType() const override;
 		void Write(StdXX::OutputStream &outputStream) const override;
 
 	private:

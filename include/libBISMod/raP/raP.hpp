@@ -17,13 +17,13 @@
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <StdXXFileSystem.hpp>
-#include "CRapNode.hpp"
+#include "RapNode.hpp"
 
 namespace libBISMod
 {
-	void RapParse(StdXX::String source, StdXX::String rootName, CRapTree *pRootNode, SRapErrorContext *pCtx);
-	void RapParseFile(const StdXX::FileSystem::Path& inputPath, CRapTree *pRootNode, SRapErrorContext *pCtx);
-	void ReadRapTreeFromFile(const StdXX::FileSystem::Path& path, CRapTree *pRootNode);
-	void SaveRapTreeToFile(const StdXX::FileSystem::Path& path, CRapTree *pRootNode);
-	void SaveRawRapTreeToFile(const StdXX::FileSystem::Path& path, CRapTree *pRootNode);
+	StdXX::UniquePointer<RapTree> RapParseFile(const StdXX::FileSystem::Path& inputPath, const StdXX::Function<void(const RapParseFeedback&, const StdXX::String&, const RapParseContext& context)>& parseFeedback);
+	void RapPreprocessFile(const StdXX::FileSystem::Path& inputPath, StdXX::TextWriter& textWriter);
+	void ReadRapTreeFromFile(const StdXX::FileSystem::Path& path, RapTree *pRootNode);
+	void SaveRapTreeToStream(StdXX::OutputStream &outputStream, const RapTree& rootNode);
+	void SaveRawRapTreeToStream(StdXX::OutputStream &outputStream, const RapTree& rootNode);
 }

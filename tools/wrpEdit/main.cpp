@@ -18,6 +18,7 @@
  */
 #include <libBISMod.hpp>
 #include <StdXX.hpp>
+//Namespaces
 using namespace libBISMod;
 using namespace StdXX;
 using namespace StdXX::CommandLine;
@@ -42,6 +43,51 @@ static void dump_json(const World& world)
 	stdOut << json.Dump() << endl;
 }
 
+struct Replacements
+{
+	BinaryTreeMap<String, String> models;
+};
+namespace StdXX::Serialization
+{
+	void Archive(Serialization::JSONDeserializer& deserializer, Replacements& replacements)
+	{
+		deserializer & Serialization::Binding(u8"models", replacements.models);
+	}
+}
+static void ConvertKeysToLowercase(BinaryTreeMap<String, String>& mapping)
+{
+	BinaryTreeMap<String, String> copy;
+	for(const auto& entry : mapping)
+	{
+		copy.Insert(entry.key.ToLowercase(), entry.value);
+	}
+	mapping = Move(copy);
+}
+static void replace_resources(World& world, const FileSystem::Path& path)
+{
+	Replacements replacements;
+
+	FileInputStream fileInputStream(path);
+	BufferedInputStream bufferedInputStream(fileInputStream);
+	Serialization::JSONDeserializer deserializer(bufferedInputStream);
+
+	deserializer >> replacements;
+	ConvertKeysToLowercase(replacements.models);
+
+	for(uint32 i = 0; i < world.GetNumberOfObjects(); i++)
+	{
+		auto& obj = world.GetObject(i);
+		auto it = replacements.models.Find(obj.GetModelFilePath().ToLowercase());
+
+		if(it != replacements.models.end())
+		{
+			obj.SetModelFilePath(it.operator*().value);
+		}
+	}
+
+	world.Write(stdOut);
+}
+
 int32 Main(const String &programName, const FixedArray<String> &args)
 {
 	Parser commandLineParser(programName);
@@ -54,6 +100,11 @@ int32 Main(const String &programName, const FixedArray<String> &args)
 
 	Group json(u8"json", u8"Dump world as JSON");
 	subCommandArgument.AddCommand(json);
+
+	Group replace(u8"replace-resources", u8"Replace resources file");
+	PathArgument replaceFileArg(u8"replacementFile", u8"path to the replacement JSON file");
+	replace.AddPositionalArgument(replaceFileArg);
+	subCommandArgument.AddCommand(replace);
 
 	commandLineParser.AddPositionalArgument(subCommandArgument);
 
@@ -76,6 +127,8 @@ int32 Main(const String &programName, const FixedArray<String> &args)
 
 	if(matchResult.IsActivated(json))
 		dump_json(*world);
+	else if(matchResult.IsActivated(replace))
+		replace_resources(*world, replaceFileArg.Value(matchResult));
 
 	return EXIT_SUCCESS;
 }

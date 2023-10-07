@@ -31,6 +31,11 @@ String Object_4WVR::GetModelFilePath() const
 	return this->p3dFileName;
 }
 
+void Object_4WVR::SetModelFilePath(const String& modelFilePath)
+{
+	this->p3dFileName = modelFilePath;
+}
+
 //Constructor
 World_4WVR::World_4WVR(uint32 dimX, uint32 dimY, InputStream &inputStream) : elevations(dimY, dimX), textureIndices(dimY, dimX)
 {
@@ -77,7 +82,7 @@ uint32 World_4WVR::GetNumberOfObjects() const
 	return this->objects.GetNumberOfElements();
 }
 
-const libBISMod::WorldObject& World_4WVR::GetObject(uint32 index) const
+libBISMod::WorldObject& World_4WVR::GetObject(uint32 index)
 {
 	return *this->objects[index];
 }

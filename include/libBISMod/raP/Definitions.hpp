@@ -17,6 +17,7 @@
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
+#include <StdXXCore.hpp>
 
 namespace libBISMod
 {
@@ -28,12 +29,19 @@ namespace libBISMod
 		RAP_ARRAYTYPE_EMBEDDEDARRAY
 	};
 
-	enum ERapPacketType
+	enum RapPacketType
 	{
-		RAP_PACKETTYPE_ILLEGAL = -1,
 		RAP_PACKETTYPE_CLASS,
 		RAP_PACKETTYPE_VARIABLE,
 		RAP_PACKETTYPE_ARRAY
+	};
+
+	enum class RapParseFeedback
+	{
+		ExtraSemicolon,
+		MissingSemicolonAtClassEnd,
+		MissingSemicolonAtPropertyAssignmentEnd,
+		UnquotedString
 	};
 
 	enum ERapVariableType
@@ -44,9 +52,9 @@ namespace libBISMod
 	};
 
 	//Structs
-	struct SRapErrorContext
+	struct RapParseContext
 	{
-		StdXX::String context;
+		StdXX::String filePath;
 		uint32 lineNumber;
 	};
 }

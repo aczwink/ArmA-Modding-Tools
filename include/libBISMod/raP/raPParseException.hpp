@@ -16,29 +16,29 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <StdXX.hpp>
-#include <libBISMod.hpp>
-using namespace libBISMod;
-using namespace StdXX;
-using namespace StdXX::UI;
+#include <StdXXErrorHandling.hpp>
+//Local
+#include "Definitions.hpp"
 
-class P3DEditMainWindow : public MainAppWindow
+namespace libBISMod
 {
-public:
-	//Constructor
-	inline P3DEditMainWindow(EventHandling::EventQueue& eventQueue) : MainAppWindow(eventQueue)
+	class raPParseException : public StdXX::Exception
 	{
-		this->SetTitle(u8"p3dEdit by Amir Czwink");
-		this->BuildMenu();
-	}
+	public:
+		//Constructor
+		inline raPParseException(StdXX::String&& errorMessage, const RapParseContext& context) : errorMessage(Move(errorMessage)), context(context)
+		{
+		}
 
-	//Methods
-	void OpenFile(const FileSystem::Path& filePath);
+		//Public methods
+		StdXX::String Description() const override
+		{
+			return this->errorMessage + u8" at: " + this->context.filePath + u8":" + StdXX::String::Number(this->context.lineNumber);
+		}
 
-private:
-	//State
-	UniquePointer<P3DData> p3dData;
-
-	//Methods
-	void BuildMenu();
-};
+	private:
+		//State
+		StdXX::String errorMessage;
+		RapParseContext context;
+	};
+}

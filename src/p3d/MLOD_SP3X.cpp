@@ -28,17 +28,31 @@ using namespace StdXX;
 //Destructor
 MLOD_SP3X_Lod::~MLOD_SP3X_Lod()
 {
-	free(this->lod.pVertices);
-	free(this->lod.pNormals);
-	free(this->lod.pPolygons);
+	free(this->lodData.pVertices);
+	free(this->lodData.pNormals);
 	for(uint32 i = 0; i < this->nTags; i++)
 	{
-		free(this->lod.pTags[i].pData);
+		free(this->lodData.pTags[i].pData);
 	}
-	free(this->lod.pTags);
+	free(this->lodData.pTags);
 }
 
 //Public methods
+uint32 MLOD_SP3X_Lod::GetNumberOfPolygons() const
+{
+	return this->lodData.polygons.GetNumberOfElements();
+}
+
+void MLOD_SP3X_Lod::GetPolygon(uint32 index, P3DPolygon &polygon) const
+{
+	polygon.texturePath = this->lodData.polygons[index].texturePath;
+}
+
+LodType MLOD_SP3X_Lod::GetType() const
+{
+	return LodType::MLOD_SP3X;
+}
+
 void MLOD_SP3X_Lod::Write(OutputStream &outputStream) const
 {
 	uint32 size;
@@ -50,24 +64,39 @@ void MLOD_SP3X_Lod::Write(OutputStream &outputStream) const
 	dataWriter.WriteUInt32(P3D_LODHEADER_SP3X_VERSIONMAJOR);
 	dataWriter.WriteUInt32(P3D_LODHEADER_SP3X_VERSIONMINOR);
 
-	dataWriter.WriteUInt32(this->lod.nVertices);
-	dataWriter.WriteUInt32(this->lod.nNormals);
-	dataWriter.WriteUInt32(this->lod.nPolygons);
-	dataWriter.WriteUInt32(this->lod.unknownFlags);
+	dataWriter.WriteUInt32(this->lodData.nVertices);
+	dataWriter.WriteUInt32(this->lodData.nNormals);
+	dataWriter.WriteUInt32(this->lodData.polygons.GetNumberOfElements());
+	dataWriter.WriteUInt32(this->lodData.unknownFlags);
 
-	size = this->lod.nVertices * sizeof(*this->lod.pVertices);
-	dataWriter.WriteBytes(this->lod.pVertices, size);
+	size = this->lodData.nVertices * sizeof(*this->lodData.pVertices);
+	dataWriter.WriteBytes(this->lodData.pVertices, size);
 
-	size = this->lod.nNormals * sizeof(*this->lod.pNormals);
-	dataWriter.WriteBytes(this->lod.pNormals, size);
+	size = this->lodData.nNormals * sizeof(*this->lodData.pNormals);
+	dataWriter.WriteBytes(this->lodData.pNormals, size);
 
-	size = this->lod.nPolygons * sizeof(*this->lod.pPolygons);
-	dataWriter.WriteBytes(this->lod.pPolygons, size);
+	for(const auto& polygon : this->lodData.polygons)
+	{
+		if(polygon.texturePath.GetSize() > P3D_MLOD_SP3X_PATHLENGTH)
+			NOT_IMPLEMENTED_ERROR; //TODO: implement me
+		textWriter.WriteFixedLengthString(polygon.texturePath, P3D_MLOD_SP3X_PATHLENGTH);
+		dataWriter.WriteUInt32(polygon.type);
 
-	dataWriter.WriteBytes(&this->lod.tagSignature, sizeof(this->lod.tagSignature));
-	this->WriteTags(this->lod.pTags, outputStream);
+		for (const auto& vertexTable : polygon.vertexTables)
+		{
+			dataWriter.WriteUInt32(vertexTable.verticesIndex);
+			dataWriter.WriteUInt32(vertexTable.normalsIndex);
+			dataWriter.WriteFloat32(vertexTable.u);
+			dataWriter.WriteFloat32(vertexTable.v);
+		}
 
-	dataWriter.WriteFloat32(this->lod.resolution);
+		dataWriter.WriteUInt32(polygon.flags);
+	}
+
+	dataWriter.WriteBytes(&this->lodData.tagSignature, sizeof(this->lodData.tagSignature));
+	this->WriteTags(this->lodData.pTags, outputStream);
+
+	dataWriter.WriteFloat32(this->lodData.resolution);
 }
 
 //Private methods
@@ -76,31 +105,47 @@ void MLOD_SP3X_Lod::Read(InputStream &inputStream)
 	uint32 size;
 
 	DataReader dataReader(false, inputStream);
+	TextReader textReader(inputStream, TextCodecType::ASCII);
 
-	this->lod.nVertices = dataReader.ReadUInt32();
-	this->lod.nNormals = dataReader.ReadUInt32();
-	this->lod.nPolygons = dataReader.ReadUInt32();
-	this->lod.unknownFlags = dataReader.ReadUInt32();
+	this->lodData.nVertices = dataReader.ReadUInt32();
+	this->lodData.nNormals = dataReader.ReadUInt32();
+	uint32 nPolygons = dataReader.ReadUInt32();
+	this->lodData.unknownFlags = dataReader.ReadUInt32();
 
-	size = this->lod.nVertices * sizeof(*this->lod.pVertices);
-	this->lod.pVertices = (SVertex *)malloc(size);
-	dataReader.ReadBytes(this->lod.pVertices, size);
+	size = this->lodData.nVertices * sizeof(*this->lodData.pVertices);
+	this->lodData.pVertices = (SVertex *)malloc(size);
+	dataReader.ReadBytes(this->lodData.pVertices, size);
 
-	size = this->lod.nNormals * sizeof(*this->lod.pNormals);
-	this->lod.pNormals = (Math::Vector3S *)malloc(size);
-	dataReader.ReadBytes(this->lod.pNormals, size);
+	size = this->lodData.nNormals * sizeof(*this->lodData.pNormals);
+	this->lodData.pNormals = (Math::Vector3S *)malloc(size);
+	dataReader.ReadBytes(this->lodData.pNormals, size);
 
-	size = this->lod.nPolygons * sizeof(*this->lod.pPolygons);
-	this->lod.pPolygons = (SSP3XPolygon *)malloc(size);
-	dataReader.ReadBytes(this->lod.pPolygons, size);
+	this->lodData.polygons.Resize(nPolygons);
+	for(uint32 i = 0; i < nPolygons; i++)
+	{
+		auto& polygon = this->lodData.polygons[i];
 
-	dataReader.ReadBytes(&this->lod.tagSignature, sizeof(this->lod.tagSignature));
-	this->ReadTags(this->lod.pTags, dataReader);
+		polygon.texturePath = textReader.ReadZeroTerminatedStringBySize(P3D_MLOD_SP3X_PATHLENGTH);
+		polygon.type = dataReader.ReadUInt32();
 
-	this->lod.resolution = dataReader.ReadFloat32();
+		for (auto& vertexTable : polygon.vertexTables)
+		{
+			vertexTable.verticesIndex = dataReader.ReadUInt32();
+			vertexTable.normalsIndex = dataReader.ReadUInt32();
+			vertexTable.u = dataReader.ReadFloat32();
+			vertexTable.v = dataReader.ReadFloat32();
+		}
+
+		polygon.flags = dataReader.ReadUInt32();
+	}
+
+	dataReader.ReadBytes(&this->lodData.tagSignature, sizeof(this->lodData.tagSignature));
+	this->ReadTags(dataReader);
+
+	this->lodData.resolution = dataReader.ReadFloat32();
 }
 
-void MLOD_SP3X_Lod::ReadTags(SMLODTag *pTags, DataReader& dataReader)
+void MLOD_SP3X_Lod::ReadTags(DataReader& dataReader)
 {
 	DynamicArray<SMLODTag> tags;
 	SMLODTag tmp;
@@ -121,10 +166,10 @@ void MLOD_SP3X_Lod::ReadTags(SMLODTag *pTags, DataReader& dataReader)
 		}
 	}
 
-	pTags = (SMLODTag *)malloc(tags.GetNumberOfElements() * sizeof(*pTags));
+	this->lodData.pTags = (SMLODTag *)malloc(tags.GetNumberOfElements() * sizeof(*this->lodData.pTags));
 	for(uint32 i = 0; i < tags.GetNumberOfElements(); i++)
 	{
-		pTags[i] = tags[i];
+		this->lodData.pTags[i] = tags[i];
 	}
 	this->nTags = tags.GetNumberOfElements();
 }

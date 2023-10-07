@@ -12,11 +12,16 @@ set(SOURCE_FILES
 	${CMAKE_CURRENT_SOURCE_DIR}/p3d/P3D.cpp
 
 	#wrp
-	${CMAKE_CURRENT_SOURCE_DIR}/raP/CRapArrayValue.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/raP/CRapLexer.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/raP/CRapLexer.hpp
-	${CMAKE_CURRENT_SOURCE_DIR}/raP/CRapNode.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/raP/ContextAwareCharStreamReader.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/ParseRaP.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/raP/RapArrayValue.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/raP/RapLexer.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/raP/RapLexer.hpp
+	${CMAKE_CURRENT_SOURCE_DIR}/raP/RapNode.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/raP/RapParser.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/raP/RapParser.hpp
+	${CMAKE_CURRENT_SOURCE_DIR}/raP/RapPreprocessor.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/raP/RapPreprocessor.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/raPInternal.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/raPRead.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/raPWrite.cpp
