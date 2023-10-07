@@ -19,24 +19,121 @@
 #include <StdXXStreams.hpp>
 //Local
 #include <libBISMod/raP/raP.hpp>
-#include <libBISMod/raP/CRapNode.hpp>
+#include <libBISMod/raP/RapNode.hpp>
 
 //Namespaces
 using namespace libBISMod;
 using namespace StdXX;
 using namespace StdXX::FileSystem;
 //Definitions
-#define PUTTABS for(uint32 i = 0; i < nTabs; i++){ textWriter << '\t'; }
+#define PUTTABS for(uint32 i = 0; i < nTabs; i++){ textWriter << u8'\t'; }
 
 //Local functions
-static void WriteRawRapArrayValue(CRapArrayValue *pValue, FileOutputStream &file)
+static uint32 CalcCommonPrefixLength(const String& a, const String& b)
 {
-	TextWriter textWriter(file, TextCodecType::ASCII);
+	auto it = a.begin();
+	auto it2 = b.begin();
+	uint32 pos = 0;
 
+	while((it != a.end()) and (it2 != b.end()))
+	{
+		if(*it != *it2)
+			break;
+		++it;
+		++it2;
+		pos++;
+	}
+
+	return pos;
+}
+
+static String CalcCommonPrefix(const DynamicArray<String>& strings)
+{
+	String prefix = strings[0];
+	for(uint32 i = 1; i < strings.GetNumberOfElements(); i++)
+	{
+		uint32 length = CalcCommonPrefixLength(prefix, strings[i]);
+		prefix = prefix.SubString(0, length);
+	}
+	return prefix;
+}
+
+static void AddEnumValues(DynamicArray<DynamicArray<String>>& enums, BinaryTreeMap<String, uint32>& remaining, uint32 enumValue)
+{
+	DynamicArray<String> toRemove;
+	for(const auto& kv : remaining)
+	{
+		if(kv.key.IsEmpty())
+		{
+			//happens in default CONFIG.BIN of ArmA CWA 1.99 with ManActN. Probably it is empty string, because it is not referenced anywhere?!
+			toRemove.Push(kv.key);
+			continue;
+		}
+
+		if(kv.value == enumValue)
+		{
+			if(enumValue == 0)
+			{
+				DynamicArray<String> newEnum;
+				newEnum.Push(kv.key);
+
+				enums.Push(Move(newEnum));
+			}
+			else
+			{
+				uint32 bestEnumIndex = 0;
+				int32 bestLength = -1;
+				for(uint32 i = 0; i < enums.GetNumberOfElements(); i++)
+				{
+					if(enums[i].GetNumberOfElements() != enumValue)
+						continue;
+
+					uint32 prefixLength = CalcCommonPrefixLength(enums[i][0], kv.key);
+					if(int32(prefixLength) > bestLength)
+					{
+						bestEnumIndex = i;
+						bestLength = prefixLength;
+					}
+				}
+
+				enums[bestEnumIndex].Push(kv.key);
+			}
+
+			toRemove.Push(kv.key);
+		}
+	}
+
+	for(const auto& s : toRemove)
+		remaining.Remove(s);
+}
+
+static void WriteEnumTable(const BinaryTreeMap<String, uint32>& enumTable, TextWriter& textWriter)
+{
+	DynamicArray<DynamicArray<String>> enums;
+	BinaryTreeMap<String, uint32> remaining = enumTable;
+
+	for(uint32 enumValue = 0; !remaining.IsEmpty(); enumValue++)
+	{
+		AddEnumValues(enums, remaining, enumValue);
+	}
+
+	for(const auto& enumDef : enums)
+	{
+		textWriter << u8"enum " << CalcCommonPrefix(enumDef) << endl << u8"{" << endl;
+		for(const auto& entry : enumDef)
+		{
+			textWriter << u8"\t" << entry << u8"," << endl;
+		}
+		textWriter << u8"};" << endl;
+	}
+}
+
+static void WriteRawRapArrayValue(RapArrayValue *pValue, TextWriter& textWriter)
+{
 	switch(pValue->GetType())
 	{
 		case RAP_ARRAYTYPE_STRING:
-			textWriter << '"' << pValue->GetValueString() << '"';
+			textWriter << u8'"' << pValue->GetValueString() << u8'"';
 			break;
 		case RAP_ARRAYTYPE_FLOAT:
 			textWriter << pValue->GetValueFloat();
@@ -46,46 +143,45 @@ static void WriteRawRapArrayValue(CRapArrayValue *pValue, FileOutputStream &file
 			break;
 		case RAP_ARRAYTYPE_EMBEDDEDARRAY:
 		{
-			DynamicArray<CRapArrayValue> array;
+			DynamicArray<RapArrayValue> array;
 
 			pValue->GetValueArray(array);
-			textWriter << '{';
+			textWriter << u8'{';
 			for(uint32 i = 0; i < array.GetNumberOfElements(); i++)
 			{
-				WriteRawRapArrayValue(&array[i], file);
+				WriteRawRapArrayValue(&array[i], textWriter);
 				if(i+1 != array.GetNumberOfElements())
 				{
-					textWriter << ", ";
+					textWriter << u8", ";
 				}
 			}
-			textWriter << '}';
+			textWriter << u8'}';
 		}
 			break;
 	}
 }
 
-static void WriteRawRapPacket(CRapNode *pNode, uint16 nTabs, FileOutputStream &file)
+static void WriteRawRapPacket(const RapNode& node, uint16 nTabs, TextWriter& textWriter)
 {
-	TextWriter textWriter(file, TextCodecType::ASCII);
 	PUTTABS;
 
-	switch(pNode->GetPacketType())
+	switch(node.GetPacketType())
 	{
 		case RAP_PACKETTYPE_CLASS:
-			textWriter << "class " << pNode->GetName();
-			if(!pNode->GetInheritedClassName().IsEmpty())
+			textWriter << "class " << node.GetName();
+			if(!node.GetInheritedClassName().IsEmpty())
 			{
-				textWriter << " : " << pNode->GetInheritedClassName();
+				textWriter << " : " << node.GetInheritedClassName();
 			}
 			textWriter << endl;
 			PUTTABS;
-			textWriter << '{' << endl;
-			for(uint32 i = 0; i < pNode->GetNumberOfEmbeddedPackages(); i++)
+			textWriter << u8'{' << endl;
+			for(uint32 i = 0; i < node.GetNumberOfEmbeddedPackages(); i++)
 			{
-				WriteRawRapPacket(&pNode->GetNode(i), nTabs+1, file);
-				if(i+1 != pNode->GetNumberOfEmbeddedPackages())
+				WriteRawRapPacket(node.GetChildNode(i), nTabs+1, textWriter);
+				if(i+1 != node.GetNumberOfEmbeddedPackages())
 				{
-					if(pNode->GetNode(i+1).GetPacketType() == RAP_PACKETTYPE_CLASS)
+					if(node.GetChildNode(i+1).GetPacketType() == RAP_PACKETTYPE_CLASS)
 					{
 						textWriter << endl;
 					}
@@ -95,34 +191,32 @@ static void WriteRawRapPacket(CRapNode *pNode, uint16 nTabs, FileOutputStream &f
 			textWriter << "};" << endl;
 			break;
 		case RAP_PACKETTYPE_VARIABLE:
-			switch(pNode->GetVariableType())
+			switch(node.GetVariableType())
 			{
 				case RAP_VARIABLETYPE_STRING:
 				{
 					String str;
 
-					str = pNode->GetVariableValueString();
-					str.Replace(u8"\"", "\"\""); //" is escaped by putting it double
-					textWriter << pNode->GetName() << " = \"" << str << "\";" << endl;
+					str = node.GetVariableValueString();
+					str = str.Replace(u8"\"", "\"\""); //" is escaped by putting it double
+					textWriter << node.GetName() << " = \"" << str << "\";" << endl;
 				}
 					break;
 				case RAP_VARIABLETYPE_FLOAT:
-					textWriter << pNode->GetName() << " = " << pNode->GetVariableValueFloat() << ";" << endl;
+					textWriter << node.GetName() << " = " << node.GetVariableValueFloat() << ";" << endl;
 					break;
 				case RAP_VARIABLETYPE_INT:
-					textWriter << pNode->GetName() << " = " << pNode->GetVariableValueInt() << ";" << endl;
+					textWriter << node.GetName() << " = " << node.GetVariableValueInt() << ";" << endl;
 					break;
 			}
 			break;
 		case RAP_PACKETTYPE_ARRAY:
 		{
-			DynamicArray<CRapArrayValue> array;
-
-			pNode->GetVariableValueArray(array);
-			textWriter << pNode->GetName() << "[] = {";
+			DynamicArray<RapArrayValue> array = node.ArrayValue();
+			textWriter << node.GetName() << "[] = {";
 			for(uint32 i = 0; i < array.GetNumberOfElements(); i++)
 			{
-				WriteRawRapArrayValue(&array[i], file);
+				WriteRawRapArrayValue(&array[i], textWriter);
 				if(i+1 != array.GetNumberOfElements())
 				{
 					textWriter << ", ";
@@ -135,29 +229,20 @@ static void WriteRawRapPacket(CRapNode *pNode, uint16 nTabs, FileOutputStream &f
 }
 
 //Namespace Functions
-void libBISMod::SaveRawRapTreeToFile(const Path& path, CRapTree *pRootNode)
+void libBISMod::SaveRawRapTreeToStream(OutputStream &outputStream, const RapTree& rootNode)
 {
-	FileOutputStream file(path);
-	TextWriter textWriter(file, TextCodecType::ASCII);
+	TextWriter textWriter(outputStream, TextCodecType::Latin1);
 
-	if(pRootNode->intDefs.GetNumberOfElements() || pRootNode->floatDefs.GetNumberOfElements())
+	if(!rootNode.EnumTable().IsEmpty())
 	{
-		textWriter << "//Definitions" << endl;
-		for(const auto& it : pRootNode->intDefs)
-		{
-			textWriter << "#define " << it.key << ' ' << it.value << endl;
-		}
-		for(const auto& it : pRootNode->floatDefs)
-		{
-			textWriter << "#define " << it.key << ' ' << it.value << endl;
-		}
+		WriteEnumTable(rootNode.EnumTable(), textWriter);
 		textWriter << endl << endl;
 	}
 
-	for(uint32 i = 0; i < pRootNode->embeddedPackets.GetNumberOfElements(); i++)
+	for(uint32 i = 0; i < rootNode.ChildNodes().GetNumberOfElements(); i++)
 	{
-		WriteRawRapPacket(&pRootNode->embeddedPackets[i], 0, file);
-		if(i+1 != pRootNode->embeddedPackets.GetNumberOfElements())
+		WriteRawRapPacket(rootNode.ChildNodes()[i], 0, textWriter);
+		if(i+1 != rootNode.ChildNodes().GetNumberOfElements())
 		{
 			textWriter << endl;
 		}

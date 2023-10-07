@@ -16,10 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
 #include <StdXXCore.hpp>
-//Local
-#include "MLOD_SP3X.hpp"
-#include "P3DModelInfo.hpp"
 //Definitions
 #define P3D_HEADER_VERSION_MLOD 0x101
 
@@ -54,36 +52,25 @@
 namespace libBISMod
 {
 	//Structures
-	struct SMLODLodHeader
+	struct MLOD_LodHeader
 	{
 		uint8 signature[4];
 		uint32 versionMajor;
 		uint32 versionMinor;
 	};
 
-	class MLODModelInfo : public P3DModelInfo
+	struct MLOD_Polygon
 	{
-	public:
-		//State
-		StdXX::String defaultPath;
-
-		//Constructor
-		inline MLODModelInfo(StdXX::InputStream& inputStream)
+		uint32 type;
+		struct
 		{
-			uint8 defaultPath[P3D_MLOD_SP3X_PATHLENGTH];
-			uint32 nBytesRead = inputStream.ReadBytes(defaultPath, sizeof(defaultPath));
-			if(nBytesRead == sizeof(defaultPath))
-				this->defaultPath = StdXX::String::CopyUtf8Bytes(defaultPath, sizeof(defaultPath));
-		}
-
-		//Methods
-		void Write(StdXX::OutputStream &outputStream) const override
-		{
-			if(!this->defaultPath.IsEmpty())
-			{
-				StdXX::TextWriter textWriter(outputStream, StdXX::TextCodecType::ASCII);
-				textWriter.WriteFixedLengthString(this->defaultPath, P3D_MLOD_SP3X_PATHLENGTH);
-			}
-		}
+			uint32 verticesIndex;
+			uint32 normalsIndex;
+			float32 u;
+			float32 v;
+		} vertexTables[4];
+		uint32 flags;
+		StdXX::String texturePath;
+		StdXX::String materialName;
 	};
 }

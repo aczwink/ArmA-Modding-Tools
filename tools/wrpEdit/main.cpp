@@ -18,6 +18,7 @@
  */
 #include <libBISMod.hpp>
 #include <StdXX.hpp>
+//Namespaces
 using namespace libBISMod;
 using namespace StdXX;
 using namespace StdXX::CommandLine;

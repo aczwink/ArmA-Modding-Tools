@@ -49,13 +49,6 @@ ODOL7Lod::~ODOL7Lod()
 	free(this->lodData.vertexTable.pVertices);
 	free(this->lodData.vertexTable.pNormals);
 
-	//Textures
-	repeat(this->lodData.textures.nTextures, i)
-	{
-		free(this->lodData.textures.ppTextures[i]);
-	}
-	free(this->lodData.textures.ppTextures);
-
 	//Lod Edges
 	free(this->lodData.lodEdges.pMLODEdges);
 	free(this->lodData.lodEdges.pODOLEdges);
@@ -106,12 +99,29 @@ ODOL7Lod::~ODOL7Lod()
 }
 
 //Public methods
+uint32 ODOL7Lod::GetNumberOfPolygons() const
+{
+	return this->lodData.polygons.nPolygons;
+}
+
+void ODOL7Lod::GetPolygon(uint32 index, P3DPolygon &polygon) const
+{
+	uint16 textureIndex = this->lodData.polygons.pPolygons[index].textureIndex;
+	polygon.texturePath = this->lodData.textures[textureIndex];
+}
+
+LodType ODOL7Lod::GetType() const
+{
+	return LodType::ODOL7;
+}
+
 void ODOL7Lod::Write(OutputStream &outputStream) const
 {
 	byte *pCompressedData;
 	uint32 uncompressedSize, compressedSize;
 
 	DataWriter dataWriter(false, outputStream);
+	TextWriter textWriter(outputStream, TextCodecType::ASCII);
 
 	//VertexTable
 	dataWriter.WriteUInt32(this->lodData.vertexTable.nVerticesFlags);
@@ -137,11 +147,9 @@ void ODOL7Lod::Write(OutputStream &outputStream) const
 	dataWriter.WriteFloat32(this->lodData.unknownFloat3);
 
 	//Textures
-	dataWriter.WriteUInt32(this->lodData.textures.nTextures);
-	repeat(this->lodData.textures.nTextures, i)
-	{
-		dataWriter.WriteBytes(this->lodData.textures.ppTextures[i], GetStringLength(this->lodData.textures.ppTextures[i])+1);
-	}
+	dataWriter.WriteUInt32(this->lodData.textures.GetNumberOfElements());
+	for(const auto& texture : this->lodData.textures)
+		textWriter.WriteStringZeroTerminated(texture);
 
 	//Lod Edges
 	dataWriter.WriteUInt32(this->lodData.lodEdges.nMLODEdges);
@@ -249,17 +257,9 @@ void ODOL7Lod::Read(InputStream& inputStream)
 	this->lodData.unknownFloat3 = dataReader.ReadFloat32();
 
 	//Textures
-	this->lodData.textures.nTextures = dataReader.ReadUInt32();
-	this->lodData.textures.ppTextures = (char **)malloc(this->lodData.textures.nTextures * sizeof(*this->lodData.textures.ppTextures));
-	repeat(this->lodData.textures.nTextures, i)
-	{
-		String buffer;
-
-		buffer = textReader.ReadZeroTerminatedString();
-		this->lodData.textures.ppTextures[i] = (char *)malloc(buffer.GetLength()+1);
-		this->lodData.textures.ppTextures[i][buffer.GetLength()] = '\0';
-		MemCopy(this->lodData.textures.ppTextures[i], buffer.GetRawZeroTerminatedData(), buffer.GetLength());
-	}
+	this->lodData.textures.Resize(dataReader.ReadUInt32());
+	for(auto& texture : this->lodData.textures)
+		texture = textReader.ReadZeroTerminatedString();
 
 	//Lod Edges
 	this->lodData.lodEdges.nMLODEdges = dataReader.ReadUInt32();

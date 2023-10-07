@@ -16,46 +16,40 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <StdXXCore.hpp>
-#include <StdXXFileSystem.hpp>
-#include "P3DLod.hpp"
+#include <StdXX.hpp>
+//Local
+#include "MLOD_SP3X.hpp"
 #include "P3DModelInfo.hpp"
 
 namespace libBISMod
 {
-	enum class P3DType
-	{
-		MLOD,
-		ODOL7
-	};
-
-	class P3DData
+	class MLODModelInfo : public P3DModelInfo
 	{
 	public:
 		//State
-		StdXX::DynamicArray<StdXX::UniquePointer<P3DLod>> lods;
-		StdXX::UniquePointer<P3DModelInfo> modelInfo;
+		StdXX::String defaultPath;
 
 		//Constructor
-		inline P3DData(P3DType type) : type(type)
+		inline MLODModelInfo(StdXX::InputStream& inputStream)
 		{
-		}
-
-		//Properties
-		inline P3DType Type() const
-		{
-			return this->type;
+			uint8 defaultPath[P3D_MLOD_SP3X_PATHLENGTH];
+			uint32 nBytesRead = inputStream.ReadBytes(defaultPath, sizeof(defaultPath));
+			if(nBytesRead == sizeof(defaultPath))
+			{
+				StdXX::BufferInputStream bufferInputStream(defaultPath, P3D_MLOD_SP3X_PATHLENGTH);
+				StdXX::TextReader textReader(bufferInputStream, StdXX::TextCodecType::ASCII);
+				this->defaultPath = textReader.ReadZeroTerminatedString();
+			}
 		}
 
 		//Methods
-		void Write(StdXX::OutputStream& outputStream) const;
-
-	private:
-		//State
-		P3DType type;
+		void Write(StdXX::OutputStream &outputStream) const override
+		{
+			if(!this->defaultPath.IsEmpty())
+			{
+				StdXX::TextWriter textWriter(outputStream, StdXX::TextCodecType::ASCII);
+				textWriter.WriteFixedLengthString(this->defaultPath, P3D_MLOD_SP3X_PATHLENGTH);
+			}
+		}
 	};
-
-	StdXX::String LodResolutionToString(float resolutiuon);
-	StdXX::String P3dTypeToString(P3DType type);
-	StdXX::UniquePointer<P3DData> ReadP3DFile(StdXX::InputStream& inputStream);
 }

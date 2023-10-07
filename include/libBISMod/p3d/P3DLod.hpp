@@ -27,6 +27,11 @@ namespace libBISMod
 		ODOL7
 	};
 
+	struct P3DPolygon
+	{
+		StdXX::String texturePath;
+	};
+
 	class P3DLod
 	{
 	public:
@@ -34,6 +39,9 @@ namespace libBISMod
 		virtual ~P3DLod() = default;
 
 		//Abstract
+		virtual uint32 GetNumberOfPolygons() const = 0;
+		virtual void GetPolygon(uint32 index, P3DPolygon& polygon) const = 0;
+		virtual LodType GetType() const = 0;
 		virtual void Write(StdXX::OutputStream& outputStream) const = 0;
 	};
 }

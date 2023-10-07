@@ -17,31 +17,33 @@
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
 //Class header
-#include "P3DEditMainWindow.hpp"
+#include <libBISMod/raP/RapArrayValue.hpp>
+//Namespaces
+using namespace libBISMod;
+using namespace StdXX;
 
 //Public methods
-void P3DEditMainWindow::OpenFile(const FileSystem::Path &filePath)
+void RapArrayValue::SetType(ERapArrayType type)
 {
-	FileInputStream fileInputStream(filePath);
-	this->p3dData = ReadP3DFile(fileInputStream);
+	this->type = type;
 }
 
-
-//Private methods
-void P3DEditMainWindow::BuildMenu()
+void RapArrayValue::SetValue(int32 i)
 {
-	Menu* menu = new Menu(u8"File");
+	this->iValue = i;
+}
 
-	Action* openAction = new Action(u8"Open", [this](){
-		DynamicArray<Tuple<String, DynamicArray<String>>> filters;
+void RapArrayValue::SetValue(float32 f)
+{
+	this->fValue = f;
+}
 
-		DynamicArray<String> extensions;
-		extensions.Push(u8"*.p3d");
-		filters.Push({u8"P3D files", extensions});
+void RapArrayValue::SetValue(String str)
+{
+	this->str = str;
+}
 
-		this->OpenFile(this->SelectExistingFile(u8"Open P3D file", filters, FileSystem::FileSystemsManager::Instance().OSFileSystem().GetWorkingDirectory()));
-	});
-	menu->AppendEntry(openAction);
-
-	this->GetMenuBar()->AppendMenu(menu);
+void RapArrayValue::SetValue(const DynamicArray<RapArrayValue> &refArray)
+{
+	this->embeddedArray = refArray;
 }

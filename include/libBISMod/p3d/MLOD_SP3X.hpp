@@ -20,6 +20,7 @@
 #include <StdXXCore.hpp>
 //Local
 #include "P3DLod.hpp"
+#include "MLOD.hpp"
 //Definitions
 #define P3D_LODHEADER_SP3X_SIGNATURE "SP3X"
 #define P3D_LODHEADER_SP3X_VERSIONMAJOR 0x1C
@@ -35,20 +36,6 @@ namespace libBISMod
 		uint32 flags;
 	};
 
-	struct SSP3XPolygon
-	{
-		char textureName[32];
-		uint32 type;
-		struct
-		{
-			uint32 verticesIndex;
-			uint32 normalsIndex;
-			float u;
-			float v;
-		} vertexTables[4];
-		uint32 flags;
-	};
-
 	struct SMLODTag
 	{
 		char name[64];
@@ -60,11 +47,10 @@ namespace libBISMod
 	{
 		uint32 nVertices;
 		uint32 nNormals;
-		uint32 nPolygons;
 		uint32 unknownFlags;
 		SVertex *pVertices;
 		StdXX::Math::Vector3S *pNormals;
-		SSP3XPolygon *pPolygons;
+		StdXX::DynamicArray<MLOD_Polygon> polygons;
 		char tagSignature[4];
 		SMLODTag *pTags;
 		float resolution;
@@ -74,7 +60,7 @@ namespace libBISMod
 	{
 	public:
 		//State
-		SMLODLod lod;
+		SMLODLod lodData;
 
 		//Constructor
 		inline MLOD_SP3X_Lod(StdXX::InputStream& inputStream)
@@ -86,6 +72,9 @@ namespace libBISMod
 		~MLOD_SP3X_Lod();
 
 		//Methods
+		uint32 GetNumberOfPolygons() const override;
+		void GetPolygon(uint32 index, P3DPolygon &polygon) const override;
+		LodType GetType() const override;
 		void Write(StdXX::OutputStream &outputStream) const override;
 
 	private:
@@ -94,7 +83,7 @@ namespace libBISMod
 
 		//Methods
 		void Read(StdXX::InputStream& inputStream);
-		void ReadTags(SMLODTag *pTags, StdXX::DataReader& dataReader);
+		void ReadTags(StdXX::DataReader& dataReader);
 		void WriteTags(SMLODTag *pTags, StdXX::OutputStream& outputStream) const;
 	};
 }

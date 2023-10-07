@@ -25,6 +25,7 @@
 #include <libBISMod/p3d/MLOD.hpp>
 #include <libBISMod/p3d/MLOD_SP3X.hpp>
 #include <libBISMod/p3d/MLOD_P3DM.hpp>
+#include <libBISMod/p3d/MLODModelInfo.hpp>
 #include "Definitions.hpp"
 //Namespaces
 using namespace libBISMod;
@@ -75,7 +76,7 @@ static UniquePointer<P3DLod> ReadLod(P3DType type, InputStream& inputStream)
 	{
 		case P3DType::MLOD:
 		{
-			SMLODLodHeader header;
+			MLOD_LodHeader header;
 
 			DataReader dataReader(false, inputStream);
 
@@ -108,6 +109,32 @@ static UniquePointer<P3DModelInfo> ReadModelInfo(P3DType type, InputStream& inpu
 		case P3DType::ODOL7:
 			return new ODOL7ModelInfo(inputStream, nLods);
 	}
+}
+
+//Public methods
+void P3DData::Write(OutputStream& outputStream) const
+{
+	DataWriter dataWriter(false, outputStream);
+
+	switch(this->Type())
+	{
+		case P3DType::MLOD:
+		{
+			dataWriter.WriteBytes(P3D_HEADER_SIGNATURE_MLOD, 4);
+			dataWriter.WriteUInt32(P3D_HEADER_VERSION_MLOD);
+		}
+			break;
+		case P3DType::ODOL7:
+			dataWriter.WriteBytes(P3D_HEADER_SIGNATURE_ODOL, 4);
+			dataWriter.WriteUInt32(P3D_HEADER_VERSION_ODOL7);
+			break;
+	}
+	dataWriter.WriteUInt32(this->lods.GetNumberOfElements());
+
+	for(const auto& lod : this->lods)
+		lod->Write(outputStream);
+
+	this->modelInfo->Write(outputStream);
 }
 
 //Namespace functions
@@ -170,30 +197,4 @@ UniquePointer<P3DData> libBISMod::ReadP3DFile(InputStream& inputStream)
 	}
 
 	return nullptr;
-}
-
-void libBISMod::WriteP3DFile(const FileSystem::Path& path, const P3DData& data)
-{
-	FileOutputStream fileOutputStream(path);
-	DataWriter dataWriter(false, fileOutputStream);
-
-	switch(data.Type())
-	{
-		case P3DType::MLOD:
-		{
-			dataWriter.WriteBytes(P3D_HEADER_SIGNATURE_MLOD, 4);
-			dataWriter.WriteUInt32(P3D_HEADER_VERSION_MLOD);
-		}
-		break;
-		case P3DType::ODOL7:
-			dataWriter.WriteBytes(P3D_HEADER_SIGNATURE_ODOL, 4);
-			dataWriter.WriteUInt32(P3D_HEADER_VERSION_ODOL7);
-			break;
-	}
-	dataWriter.WriteUInt32(data.lods.GetNumberOfElements());
-
-	for(const auto& lod : data.lods)
-		lod->Write(fileOutputStream);
-
-	data.modelInfo->Write(fileOutputStream);
 }

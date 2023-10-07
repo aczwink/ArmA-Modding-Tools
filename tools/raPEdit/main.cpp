@@ -25,11 +25,33 @@ using namespace StdXX::FileSystem;
 //Prototypes
 void PrintManual();
 
-void bin2cpp(const Path& input, const Path& output)
+static void ParseFeedback(const RapParseFeedback& feedback, const String& context, const RapParseContext& parseContext)
 {
-	CRapTree tree;
+	String location = u8" at: " + parseContext.filePath + u8":" + String::Number(parseContext.lineNumber);
+	switch(feedback)
+	{
+		case RapParseFeedback::ExtraSemicolon:
+			stdErr << u8"Extra semicolon in class '" << context << u8"' detected";
+			break;
+		case RapParseFeedback::MissingSemicolonAtClassEnd:
+			stdErr << u8"Class '" << context << u8"' should be terminated by semicolon";
+			break;
+		case RapParseFeedback::MissingSemicolonAtPropertyAssignmentEnd:
+			stdErr << u8"Assignment to property '" << context << u8"' should be terminated by semicolon. It was guessed by line break (since ArmA CWA engine does so) but it is considered dirty";
+			break;
+		case RapParseFeedback::UnquotedString:
+			stdErr << u8"String '" << context << u8"' should be placed into double quotes for better readability";
+			break;
+	}
+
+	stdErr << location << endl;
+}
+
+static void bin2cpp(const Path& input)
+{
+	RapTree tree;
 	ReadRapTreeFromFile(input, &tree);
-	SaveRawRapTreeToFile(output, &tree);
+	SaveRawRapTreeToStream(stdOut, tree);
 
 	/*
 	 * else
@@ -40,24 +62,24 @@ void bin2cpp(const Path& input, const Path& output)
 	 */
 }
 
-void cpp2bin(const Path& input, const Path& output)
+static void cpp2bin(const Path& input)
 {
-	CRapTree tree;
-	SRapErrorContext ctx;
+	//RapPreprocessFile(input, stdOut);
+	//NOT_IMPLEMENTED_ERROR;
 
-	RapParseFile(input, &tree, &ctx);
-	SaveRapTreeToFile(output, &tree);
+	UniquePointer<RapTree> tree = RapParseFile(input, ParseFeedback);
+	SaveRapTreeToStream(stdOut, *tree);
 	/*
 	else
 	{
-		stdOut << "Error on line " << ctx.lineNumber << ": " << GetErrorDescription(result) << endl << "Context:" << endl << ctx.context << endl << endl;
+		stdOut << "Error on line " << ctx.lineNumber << ": " << GetErrorDescription(result) << endl << "Context:" << endl << ctx.filePath << endl << endl;
 		return false;
 	}*/
 }
 
 int32 Main(const String &programName, const FixedArray<String> &args)
 {
-	if(args.GetNumberOfElements() != 2)
+	if(args.GetNumberOfElements() != 1)
 	{
 		PrintManual();
 		return EXIT_FAILURE;
@@ -65,13 +87,12 @@ int32 Main(const String &programName, const FixedArray<String> &args)
 
 	const auto& osFileSystem = FileSystemsManager::Instance().OSFileSystem();
 
-	Path input = osFileSystem.FromNativePath(args[0]);
-	Path output = osFileSystem.FromNativePath(args[1]);
+	Path input = osFileSystem.ToAbsolutePath(osFileSystem.FromNativePath(args[0]));
 
 	if(input.GetFileExtension() == u8"cpp")
-		cpp2bin(input, output);
+		cpp2bin(input);
 	else
-		bin2cpp(input, output);
+		bin2cpp(input);
 
 	return EXIT_SUCCESS;
 }
@@ -80,7 +101,6 @@ void PrintManual()
 {
 	stdOut << u8"raPEdit" << " by " << u8"Amir Czwink" << endl << endl
 		   << "Usage: " << endl
-		   << "  raPEdit input output" << endl << endl
-		   << "   input      either a raw or a raP config file" << endl
-		   << "   output     file to be created" << endl;
+		   << "  raPEdit input" << endl << endl
+		   << "   input      either a raw or a raP config file" << endl;
 }
