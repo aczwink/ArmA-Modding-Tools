@@ -21,16 +21,28 @@ import fs from "fs";
 import { glob } from "glob";
 import path from "path";
 import YAML from 'yaml'
-import { CopyFilesStep, PipelineDefinition, PipelineStep } from "./PipelineDefinition";
-import { execSync } from "child_process";
+import { CompileConfigStep, CopyFilesStep, ImportFilesStep, PackArchiveStep, PipelineDefinition, PipelineStep, RepackArchiveStep } from "./PipelineDefinition";
+import { PBOFileCatalog } from "./PBOFileCatalog";
+import { GameFileCatalog } from "./GameFileCatalog";
+import { CallLocalBin, EnsureDirectoryExists, Exec, IsNewer, __SetBinDir } from "./Helpers";
 
-async function EnsureDirectoryExists(dirPath: string)
+interface EnvironmentConfig
 {
-    const exists = fs.existsSync(dirPath);
-    if(exists)
-        return;
-    await EnsureDirectoryExists(path.dirname(dirPath));
-    await fs.promises.mkdir(dirPath);
+    archivesPath: string;
+    pbosTempPath: string;
+    tempPath: string;
+    vars: dotenv.DotenvParseOutput
+}
+
+async function RunCompileConfigJob(step: CompileConfigStep, env: EnvironmentConfig)
+{
+    const sourceFilePath = path.join(env.vars[step.source], step.sourceFile);
+    const parsed = path.parse(sourceFilePath);
+    const targetFilePath = path.join(env.vars["target"], step.targetFolder, parsed.name + ".bin");
+
+    await EnsureDirectoryExists(path.dirname(targetFilePath));
+    if(await IsNewer(sourceFilePath, targetFilePath))
+        await CallLocalBin("raPEdit", [sourceFilePath, ">", targetFilePath]);
 }
 
 async function RunCopyFilesJob(step: CopyFilesStep, env: dotenv.DotenvParseOutput)
@@ -52,7 +64,7 @@ async function RunCopyFilesJob(step: CopyFilesStep, env: dotenv.DotenvParseOutpu
             continue;
         if(fs.statSync(sourceFilePath).isDirectory())
         {
-            execSync("cp -r " + sourceFilePath + " " + targetFilePath);
+            await Exec(["cp", "-r", sourceFilePath, targetFilePath]);
             continue;
         }
 
@@ -61,24 +73,116 @@ async function RunCopyFilesJob(step: CopyFilesStep, env: dotenv.DotenvParseOutpu
     }
 }
 
-function RunCreateArchiveJob(env: dotenv.DotenvParseOutput)
+async function RunCreate7zArchiveJob(env: dotenv.DotenvParseOutput)
 {
     const targetPath = env["target"];
 
-    const compressionStrength = 6; //9 highest
-    const cmdline = "7z a -t7z -mmt=on -mx=" + compressionStrength + " " + targetPath + ".7z " + targetPath + "/*";
-    execSync(cmdline);
+    const compressionStrength = env["compressionStrength"]; //9 highest
+    await Exec(["7z", "a", "-t7z", "-mmt=on", "-mx=" + compressionStrength, targetPath + ".7z", targetPath + "/*"]);
 }
 
-async function RunStep(step: PipelineStep, env: dotenv.DotenvParseOutput)
+async function RunImportFilesJob(step: ImportFilesStep, env: EnvironmentConfig)
+{
+    const sourcePath = env.vars[step.source];
+    const tempPath = env.tempPath;
+    const targetPath = env.vars["target"];
+
+    const jobsTempPath = path.join(tempPath, "jobs");
+    await EnsureDirectoryExists(jobsTempPath);
+
+    const packTempPath = path.join(tempPath, "pack");
+    await EnsureDirectoryExists(packTempPath);
+
+    const pboCatalog = new PBOFileCatalog(env.archivesPath, env.pbosTempPath);
+    const fileCatalog = new GameFileCatalog(jobsTempPath, packTempPath, pboCatalog);
+    for (const source of step.sources)
+    {
+        for (const pbo of source.pbos)
+            pboCatalog.AddPBO(path.join(sourcePath, source.name), pbo);
+
+        for (const file of source.files)
+        {
+            const sourcePath = await pboCatalog.ProvideFile(file);
+            await fileCatalog.MarkForImport(file, sourcePath!);
+        }
+    }
+    fileCatalog.RenameUnmarked();
+    await fileCatalog.ImportMarked();
+    await fileCatalog.PackArchives(path.join(targetPath, "Dta"));
+
+    await pboCatalog.UnmountAll();
+}
+
+async function RunPackArchiveJob(step: PackArchiveStep, env: dotenv.DotenvParseOutput)
+{
+    const sourcePath = path.join(env[step.source], step.source_folder);
+    const targetPath = path.join(env["target"], step.target_folder, path.basename(step.source_folder) + ".pbo");
+    if(!fs.existsSync(targetPath))
+        await CallLocalBin("ArC", ["pack", sourcePath, targetPath]);
+}
+
+async function RunRepackArchiveJob(step: RepackArchiveStep, env: EnvironmentConfig)
+{
+    const sourcePath = env.vars[step.sourceLocation];
+
+    const repackPath = path.join(env.tempPath, "repack");
+    await EnsureDirectoryExists(repackPath);
+
+    const pboCatalog = new PBOFileCatalog(env.archivesPath, env.pbosTempPath);
+    const pboPath = await pboCatalog.MountPBO(path.join(sourcePath, step.source.name), step.source.pbo);
+
+    const targetPath = path.join(repackPath, step.targetPboName);
+    await EnsureDirectoryExists(targetPath);
+
+    const excludes = step.exclude.Values().Map(x => ["--exclude",  x].Values()).Flatten();
+    await Exec(["rsync", "-a", "--chmod=+rwX", pboPath + "/", targetPath, ...excludes]);
+
+    for (const entry of step.include)
+    {
+        const sourceFilePath = path.join(env.vars[entry.source], entry.path);
+        const targetFilePath = path.join(targetPath, path.basename(entry.path));
+
+        if(path.extname(sourceFilePath) === ".cpp")
+        {
+            const parsed = path.parse(targetFilePath);
+            await CallLocalBin("raPEdit", [sourceFilePath, ">", path.join(parsed.dir, parsed.name + ".bin")]);
+        }
+        else
+            await fs.promises.copyFile(sourceFilePath, targetFilePath);
+    }
+
+    const packPath = path.join(env.vars["target"], "AddOns", step.targetPboName + ".pbo");
+
+    if(!fs.existsSync(packPath))
+    {
+        await EnsureDirectoryExists(path.dirname(packPath));
+        await CallLocalBin("ArC", ["pack", targetPath, packPath]);
+    }
+
+    await pboCatalog.UnmountAll();
+}
+
+async function RunStep(step: PipelineStep, env: EnvironmentConfig)
 {
     switch(step.type)
     {
-        case "CopyFiles":
-            await RunCopyFilesJob(step, env);
+        case "CompileConfig":
+            await RunCompileConfigJob(step, env);
             break;
-        case "CreateArchive":
-            await RunCreateArchiveJob(env);
+        case "CopyFiles":
+            await RunCopyFilesJob(step, env.vars);
+            break;
+        case "Create7zArchive":
+            await RunCreate7zArchiveJob(env.vars);
+            break;
+        case "ImportFiles":
+            await RunImportFilesJob(step, env);
+            break;
+        case "PackArchive":
+            await RunPackArchiveJob(step, env.vars);
+            break;
+        case "RepackArchive":
+            await RunRepackArchiveJob(step, env);
             break;
         default:
             throw new Error("Unknown pipeline step: " + YAML.stringify(step));
@@ -98,14 +202,49 @@ function DurationToString(d: number)
     return d + " seconds";
 }
 
+async function EnsureDependenciesAreDownloaded(binaryPath: string)
+{
+    if(!fs.existsSync(path.join(binaryPath)))
+    {
+        await EnsureDirectoryExists(binaryPath);
+
+        await Exec(["wget", "https://github.com/aczwink/ArmA-Modding-Tools/releases/download/latest/bin_linux_x86-64.zip"], binaryPath);
+        await Exec(["unzip", "bin_linux_x86-64.zip"], binaryPath);
+        fs.promises.unlink(path.join(binaryPath, "bin_linux_x86-64.zip"));
+
+        await Exec(["wget", "https://github.com/aczwink/ACFSLib/releases/download/latest/bin_linux_x86-64.zip"], binaryPath);
+        await Exec(["unzip", "bin_linux_x86-64.zip"], binaryPath);
+        fs.promises.unlink(path.join(binaryPath, "bin_linux_x86-64.zip"));
+
+        await Exec(["wget", "https://github.com/aczwink/StdPlusPlus/releases/download/latest/bin_linux_x86-64.zip"], binaryPath);
+        await Exec(["unzip", "bin_linux_x86-64.zip"], binaryPath);
+        fs.promises.unlink(path.join(binaryPath, "bin_linux_x86-64.zip"));
+    }
+    __SetBinDir(binaryPath);
+}
+
 async function LoadAndRunPipeline()
 {
     const pipelinePath = process.argv[2];
     const envPath = process.argv[3];
 
+    //bootstrap
     const envData = await fs.promises.readFile(envPath, "utf-8");
     const env = dotenv.parse(envData);
 
+    const tempPath = env["temp"];
+    const envConfig: EnvironmentConfig = {
+        archivesPath: path.join(tempPath, "archives"),
+        pbosTempPath: path.join(tempPath, "pbos"),
+        tempPath: tempPath,
+        vars: env,
+    };
+
+    await EnsureDependenciesAreDownloaded(path.join(tempPath, "bin"));
+    await EnsureDirectoryExists(envConfig.archivesPath);
+    await EnsureDirectoryExists(envConfig.pbosTempPath);
+
+    //load pipeline
     const pipelineCode = await fs.promises.readFile(pipelinePath, "utf-8");
     const pipelineDef = YAML.parse(pipelineCode) as PipelineDefinition;
 
@@ -116,7 +255,7 @@ async function LoadAndRunPipeline()
         const start = Date.now();
 
         console.log("Running step " + (i+1) + ": " + pipelineDef.steps[i].type);
-        await RunStep(pipelineDef.steps[i], env);
+        await RunStep(pipelineDef.steps[i], envConfig);
 
         const end = Date.now();
         const delta = (end - start) / 1000;
