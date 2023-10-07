@@ -16,6 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
+export interface CompileConfigStep
+{
+    type: "CompileConfig";
+    source: string;
+    sourceFile: string;
+    targetFolder: string;
+}
+
 export interface CopyFilesStep
 {
     type: "CopyFiles";
@@ -23,12 +31,51 @@ export interface CopyFilesStep
     files: string | string[];
 }
 
-interface CreateArchiveStep
+interface Create7zArchiveStep
 {
-    type: "CreateArchive";
+    type: "Create7zArchive";
 }
 
-export type PipelineStep = CopyFilesStep | CreateArchiveStep;
+export interface ImportFilesStep
+{
+    type: "ImportFiles";
+    source: string;
+    sources: {
+        type: "Archive";
+        name: string;
+        pbos: string[];
+        files: string[];
+    }[];
+}
+
+export interface PackArchiveStep
+{
+    type: "PackArchive";
+    source: string;
+    source_folder: string;
+    target_folder: string;
+}
+
+export interface RepackArchiveStep
+{
+    type: "RepackArchive";
+    sourceLocation: string;
+    exclude: string[];
+    targetPboName: string;
+
+    include: {
+        source: string;
+        path: string;
+    }[];
+
+    source: {
+        type: "Archive";
+        name: string;
+        pbo: string;
+    };
+}
+
+export type PipelineStep = CompileConfigStep | CopyFilesStep | Create7zArchiveStep | ImportFilesStep | PackArchiveStep | RepackArchiveStep;
 
 export interface PipelineDefinition
 {

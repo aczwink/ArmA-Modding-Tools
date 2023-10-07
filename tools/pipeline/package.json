@@ -15,6 +15,7 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
+    "acts-util-core": "*",
     "dotenv": "^16.3.1",
     "glob": "^10.3.5",
     "yaml": "^2.3.2"
