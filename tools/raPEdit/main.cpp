@@ -20,10 +20,51 @@
 #include <libBISMod.hpp>
 using namespace libBISMod;
 using namespace StdXX;
+using namespace StdXX::CommandLine;
 using namespace StdXX::FileSystem;
 
-//Prototypes
-void PrintManual();
+static void inline_enums(DynamicArray<RapArrayValue>& array, const RapTree& tree)
+{
+	for(auto& arrayValue : array)
+	{
+		switch(arrayValue.Type())
+		{
+			case RAP_ARRAYTYPE_STRING:
+				if(tree.IsEnumDefined(arrayValue.ValueString()))
+					arrayValue.SetValue((int32)tree.ResolveEnum(arrayValue.ValueString()));
+				break;
+			case RAP_ARRAYTYPE_EMBEDDEDARRAY:
+				inline_enums(arrayValue.ValueArray(), tree);
+				break;
+		}
+	}
+}
+
+static void inline_enums(RapNode& rapNode, const RapTree& tree)
+{
+	switch(rapNode.PacketType())
+	{
+		case RAP_PACKETTYPE_CLASS:
+			for(uint32 i = 0; i < rapNode.GetNumberOfEmbeddedPackages(); i++)
+				inline_enums(rapNode.GetNode(i), tree);
+			break;
+		case RAP_PACKETTYPE_VARIABLE:
+		{
+			if((rapNode.VariableType() == RapVariableType::RAP_VARIABLETYPE_STRING) and tree.IsEnumDefined(rapNode.VariableValueString()))
+				rapNode.SetValue((int32)tree.ResolveEnum(rapNode.VariableValueString()));
+		}
+		break;
+		case RAP_PACKETTYPE_ARRAY:
+			inline_enums(rapNode.ArrayValue(), tree);
+		break;
+	}
+}
+
+static void inline_enums(RapTree& tree)
+{
+	inline_enums(tree, tree);
+	tree.ClearEnums();
+}
 
 static void ParseFeedback(const RapParseFeedback& feedback, const String& context, const RapParseContext& parseContext)
 {
@@ -62,12 +103,13 @@ static void bin2cpp(const Path& input)
 	 */
 }
 
-static void cpp2bin(const Path& input)
+static void cpp2bin(const Path& input, bool inlineEnums)
 {
-	//RapPreprocessFile(input, stdOut);
-	//NOT_IMPLEMENTED_ERROR;
-
 	UniquePointer<RapTree> tree = RapParseFile(input, ParseFeedback);
+
+	if(inlineEnums)
+		inline_enums(*tree);
+
 	SaveRapTreeToStream(stdOut, *tree);
 	/*
 	else
@@ -79,28 +121,38 @@ static void cpp2bin(const Path& input)
 
 int32 Main(const String &programName, const FixedArray<String> &args)
 {
-	if(args.GetNumberOfElements() != 1)
+	Parser commandLineParser(programName);
+	commandLineParser.AddHelpOption();
+
+	Option inlineEnumsOption(u8'i', u8"inline-enums", u8"Replace enum references with their enum value and don't write an enum table. Ignored when a binarized raP file is passed.");
+	commandLineParser.AddOption(inlineEnumsOption);
+
+	Option preprocessOption(u8'p', u8"preprocess-only", u8"Only run the input through the preprocessor but do not parse. Ignored when a binarized raP file is passed.");
+	commandLineParser.AddOption(preprocessOption);
+
+	PathArgument inputPathArg(u8"inPath", u8"path to the input file");
+	commandLineParser.AddPositionalArgument(inputPathArg);
+
+	if(!commandLineParser.Parse(args))
 	{
-		PrintManual();
+		stdErr << commandLineParser.GetErrorText() << endl;
 		return EXIT_FAILURE;
 	}
+	if(commandLineParser.IsHelpActivated())
+	{
+		commandLineParser.PrintHelp();
+		return EXIT_SUCCESS;
+	}
 
-	const auto& osFileSystem = FileSystemsManager::Instance().OSFileSystem();
+	const MatchResult& matchResult = commandLineParser.ParseResult();
+	FileSystem::Path inputPath = inputPathArg.Value(matchResult);
 
-	Path input = osFileSystem.ToAbsolutePath(osFileSystem.FromNativePath(args[0]));
-
-	if(input.GetFileExtension() == u8"cpp")
-		cpp2bin(input);
+	if(inputPath.GetFileExtension() == u8"bin")
+		bin2cpp(inputPath);
+	else if(matchResult.IsActivated(preprocessOption))
+		RapPreprocessFile(inputPath, stdOut);
 	else
-		bin2cpp(input);
+		cpp2bin(inputPath, matchResult.IsActivated(inlineEnumsOption));
 
 	return EXIT_SUCCESS;
-}
-
-void PrintManual()
-{
-	stdOut << u8"raPEdit" << " by " << u8"Amir Czwink" << endl << endl
-		   << "Usage: " << endl
-		   << "  raPEdit input" << endl << endl
-		   << "   input      either a raw or a raP config file" << endl;
 }

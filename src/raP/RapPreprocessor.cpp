@@ -101,7 +101,7 @@ uint32 RapPreprocessor::ReadNextCodePoint()
 
 		const auto& t = this->macros.Get(identifier);
 
-		this->PushDirectSource(t.Get<1>());
+		this->PushDirectSource(t.Get<1>() + u8"/**/"); //unfortunately the comment is needed for macro expansion to work correctly :S otherwise the macroVarAssignments could be popped before the macro is fully expanded
 		auto& sourceInfo = this->sourceStack.Last();
 
 		for(uint32 i = 0; i < t.Get<0>().GetNumberOfElements(); i++)
@@ -404,7 +404,7 @@ String RapPreprocessor::ReadPreprocessorDirective(uint32& codePoint)
 	{
 		codePoint = this->ReadNextCodePointFromCurrentStream();
 
-		if(codePoint == u8' ' || codePoint == u8'\r' || codePoint == u8';' || codePoint == u8'#')
+		if(this->IsDelimiterSymbol(codePoint))
 			break;
 		command += codePoint;
 	}

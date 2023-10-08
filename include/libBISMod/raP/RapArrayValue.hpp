@@ -25,19 +25,25 @@ namespace libBISMod
 	class RapArrayValue
 	{
 	public:
-		//Methods
-		void SetType(ERapArrayType type);
-		void SetValue(int32 i);
-		void SetValue(float32 f);
-		void SetValue(StdXX::String str);
-		void SetValue(const StdXX::DynamicArray<RapArrayValue> &refArray);
-
-		//Inline
-		inline ERapArrayType GetType() const
+		//Properties
+		inline RapArrayType Type() const
 		{
 			return this->type;
 		}
 
+		inline StdXX::DynamicArray<RapArrayValue>& ValueArray()
+		{
+			ASSERT_EQUALS(RapArrayType::RAP_ARRAYTYPE_EMBEDDEDARRAY, this->type);
+			return this->embeddedArray;
+		}
+
+		inline const StdXX::String& ValueString() const
+		{
+			ASSERT_EQUALS(RapArrayType::RAP_ARRAYTYPE_STRING, this->type);
+			return this->str;
+		}
+
+		//Inline
 		inline void GetValueArray(StdXX::DynamicArray<RapArrayValue> &refArray) const
 		{
 			refArray = this->embeddedArray;
@@ -53,14 +59,33 @@ namespace libBISMod
 			return this->iValue;
 		}
 
-		inline StdXX::String GetValueString() const
+		inline void SetValue(int32 i)
 		{
-			return this->str;
+			this->type = RAP_ARRAYTYPE_INT;
+			this->iValue = i;
+		}
+
+		inline void SetValue(float32 f)
+		{
+			this->type = RAP_ARRAYTYPE_FLOAT;
+			this->fValue = f;
+		}
+
+		inline void SetValue(StdXX::String str)
+		{
+			this->type = RAP_ARRAYTYPE_STRING;
+			this->str = str;
+		}
+
+		inline void SetValue(StdXX::DynamicArray<RapArrayValue>&& array)
+		{
+			this->type = RAP_ARRAYTYPE_EMBEDDEDARRAY;
+			this->embeddedArray = Move(array);
 		}
 
 	private:
 		//Variables
-		ERapArrayType type;
+		RapArrayType type;
 		float32 fValue;
 		int32 iValue;
 		StdXX::String str;

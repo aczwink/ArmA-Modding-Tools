@@ -14,7 +14,6 @@ set(SOURCE_FILES
 	#wrp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/ContextAwareCharStreamReader.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/ParseRaP.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/raP/RapArrayValue.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/RapLexer.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/RapLexer.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/RapNode.cpp
