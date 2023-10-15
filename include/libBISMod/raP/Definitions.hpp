@@ -21,7 +21,7 @@
 
 namespace libBISMod
 {
-	enum ERapArrayType
+	enum RapArrayType
 	{
 		RAP_ARRAYTYPE_STRING,
 		RAP_ARRAYTYPE_FLOAT,
@@ -44,7 +44,7 @@ namespace libBISMod
 		UnquotedString
 	};
 
-	enum ERapVariableType
+	enum RapVariableType
 	{
 		RAP_VARIABLETYPE_STRING,
 		RAP_VARIABLETYPE_FLOAT,

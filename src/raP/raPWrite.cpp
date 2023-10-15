@@ -71,11 +71,11 @@ static void WriteRapArray(DynamicArray<RapArrayValue> &arrayValues, BinaryTreeMa
 
 	for(uint32 i = 0; i < arrayValues.GetNumberOfElements(); i++)
 	{
-		dataWriter.WriteByte(arrayValues[i].GetType());
-		switch(arrayValues[i].GetType())
+		dataWriter.WriteByte(arrayValues[i].Type());
+		switch(arrayValues[i].Type())
 		{
 			case RAP_ARRAYTYPE_STRING:
-				WriteIndexedString(arrayValues[i].GetValueString(), dictionary, file);
+				WriteIndexedString(arrayValues[i].ValueString(), dictionary, file);
 				break;
 			case RAP_ARRAYTYPE_FLOAT:
 				dataWriter.WriteFloat32(arrayValues[i].GetValueFloat());
@@ -100,7 +100,7 @@ static bool WriteRapPacket(const RapNode *pNode, const RapTree& rootNode, Binary
 {
 	DataWriter dataWriter(false, outputStream);
 
-	switch(pNode->GetPacketType())
+	switch(pNode->PacketType())
 	{
 		case RAP_PACKETTYPE_CLASS:
 			dataWriter.WriteByte(RAP_PACKETTYPE_CLASS);
@@ -122,13 +122,13 @@ static bool WriteRapPacket(const RapNode *pNode, const RapTree& rootNode, Binary
 			break;
 		case RAP_PACKETTYPE_VARIABLE:
 			dataWriter.WriteByte(RAP_PACKETTYPE_VARIABLE);
-			dataWriter.WriteByte(pNode->GetVariableType());
+			dataWriter.WriteByte(pNode->VariableType());
 			WriteIndexedString(pNode->GetName(), dictionary, outputStream);
 
-			switch(pNode->GetVariableType())
+			switch(pNode->VariableType())
 			{
 				case RAP_VARIABLETYPE_STRING:
-					WriteRapString(pNode->GetVariableValueString(), rootNode, dictionary, outputStream);
+					WriteRapString(pNode->VariableValueString(), rootNode, dictionary, outputStream);
 					break;
 				case RAP_VARIABLETYPE_FLOAT:
 					dataWriter.WriteFloat32(pNode->GetVariableValueFloat());

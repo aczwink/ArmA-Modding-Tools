@@ -18,14 +18,20 @@
  */
 #include <libBISMod.hpp>
 #include <StdXX.hpp>
-#include <libBISMod/p3d/MLOD_SP3X.hpp>
-#include <libBISMod/p3d/MLOD_P3DM.hpp>
+#include <libBISMod/p3d/MLOD_Lod.hpp>
 #include <libBISMod/p3d/ODOL7Lod.hpp>
 //Namespaces
 using namespace libBISMod;
 using namespace StdXX;
 using namespace StdXX::CommandLine;
 using namespace StdXX::CommonFileFormats;
+
+static void convertP3D(const P3DData& p3d, LodType targetLodType)
+{
+	auto converted = p3d.Convert(targetLodType);
+
+	converted->Write(stdOut);
+}
 
 static void dump_json(const P3DData& p3d)
 {
@@ -47,7 +53,7 @@ static void dump_json(const P3DData& p3d)
 			polygons.Push(Move(jsonPolygon));
 		}
 
-		jsonLod[u8"polygons"] = Move(polygons);
+		jsonLod[u8"faces"] = Move(polygons);
 		lods.Push(Move(jsonLod));
 	}
 
@@ -88,18 +94,11 @@ static void replace_resources(P3DData& p3d, const FileSystem::Path& path)
 		switch(lod->GetType())
 		{
 			case LodType::MLOD_SP3X:
-			{
-				auto& sp3X_lod = dynamic_cast<MLOD_SP3X_Lod&>(*lod);
-
-				for(auto& polygon : sp3X_lod.lodData.polygons)
-					replace_texture(polygon.texturePath, textureReplacements);
-			}
-			break;
 			case LodType::MLOD_P3DM:
 			{
-				auto& p3dm_lod = dynamic_cast<MLOD_P3DM_Lod&>(*lod);
+				auto& mlod_lod = dynamic_cast<MLOD_Lod&>(*lod);
 
-				for(auto& polygon : p3dm_lod.lodData.polygons)
+				for(auto& polygon : mlod_lod.faces)
 					replace_texture(polygon.texturePath, textureReplacements);
 			}
 			break;
@@ -126,6 +125,12 @@ int32 Main(const String &programName, const FixedArray<String> &args)
 	commandLineParser.AddPositionalArgument(inputPathArg);
 
 	SubCommandArgument subCommandArgument(u8"command", u8"The command that should be executed");
+
+	Group convert(u8"convert", u8"Convert between different model formats");
+	CommandLine::EnumArgument<LodType> targetFormatArg(u8"targetFormat", u8"Target format of the LODs");
+	targetFormatArg.AddMapping(u8"mlod_sp3x", LodType::MLOD_SP3X, u8"MLOD SP3X");
+	convert.AddPositionalArgument(targetFormatArg);
+	subCommandArgument.AddCommand(convert);
 
 	Group json(u8"json", u8"Dump model as JSON");
 	subCommandArgument.AddCommand(json);
@@ -154,7 +159,9 @@ int32 Main(const String &programName, const FixedArray<String> &args)
 	FileInputStream fileInputStream(inputPath);
 	UniquePointer<P3DData> p3d = ReadP3DFile(fileInputStream);
 
-	if(matchResult.IsActivated(json))
+	if(matchResult.IsActivated(convert))
+		convertP3D(*p3d, targetFormatArg.Value(matchResult));
+	else if(matchResult.IsActivated(json))
 		dump_json(*p3d);
 	else if(matchResult.IsActivated(replace))
 		replace_resources(*p3d, replaceFileArg.Value(matchResult));

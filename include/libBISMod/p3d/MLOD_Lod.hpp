@@ -21,55 +21,29 @@
 //Local
 #include "P3DLod.hpp"
 #include "MLOD.hpp"
-//Definitions
-#define P3D_LODHEADER_SP3X_SIGNATURE "SP3X"
-#define P3D_LODHEADER_SP3X_VERSIONMAJOR 0x1C
-#define P3D_LODHEADER_SP3X_VERSIONMINOR 0x99
-
-#define P3D_MLOD_SP3X_PATHLENGTH 32
 
 namespace libBISMod
 {
-	struct SVertex
-	{
-		StdXX::Math::Vector3S pos;
-		uint32 flags;
-	};
-
-	struct SMLODTag
-	{
-		char name[64];
-		uint32 dataSize;
-		byte *pData;
-	};
-
-	struct SMLODLod
-	{
-		uint32 nVertices;
-		uint32 nNormals;
-		uint32 unknownFlags;
-		SVertex *pVertices;
-		StdXX::Math::Vector3S *pNormals;
-		StdXX::DynamicArray<MLOD_Polygon> polygons;
-		char tagSignature[4];
-		SMLODTag *pTags;
-		float resolution;
-	};
-
-	class MLOD_SP3X_Lod : public P3DLod
+	class MLOD_Lod : public P3DLod
 	{
 	public:
 		//State
-		SMLODLod lodData;
+		uint32 unknownFlags;
+		StdXX::DynamicArray<MLOD_Vertex> vertices;
+		StdXX::DynamicArray<StdXX::Math::Vector3S> faceNormals;
+		StdXX::DynamicArray<MLOD_Face> faces;
+		StdXX::DynamicArray<MLOD_Tag> tags;
+		float32 resolution;
 
-		//Constructor
-		inline MLOD_SP3X_Lod(StdXX::InputStream& inputStream)
+		//Constructors
+		inline MLOD_Lod(bool isSP3X) : isSP3X(isSP3X)
+		{
+		}
+
+		inline MLOD_Lod(StdXX::InputStream& inputStream)
 		{
 			this->Read(inputStream);
 		}
-
-		//Destructor
-		~MLOD_SP3X_Lod();
 
 		//Methods
 		uint32 GetNumberOfPolygons() const override;
@@ -79,11 +53,26 @@ namespace libBISMod
 
 	private:
 		//State
-		uint32 nTags;
+		bool isSP3X;
 
 		//Methods
 		void Read(StdXX::InputStream& inputStream);
-		void ReadTags(StdXX::DataReader& dataReader);
-		void WriteTags(SMLODTag *pTags, StdXX::OutputStream& outputStream) const;
+		void ReadTags(StdXX::InputStream& inputStream);
+		void WriteTag(const MLOD_Tag& tag, StdXX::DataWriter& dataWriter) const;
+
+		//Inline
+		inline void ReadVec3(StdXX::Math::Vector3S& vec3, StdXX::DataReader& dataReader)
+		{
+			vec3.x = dataReader.ReadFloat32();
+			vec3.y = dataReader.ReadFloat32();
+			vec3.z = dataReader.ReadFloat32();
+		}
+
+		inline void WriteVec3(const StdXX::Math::Vector3S& vec3, StdXX::DataWriter& dataWriter) const
+		{
+			dataWriter.WriteFloat32(vec3.x);
+			dataWriter.WriteFloat32(vec3.y);
+			dataWriter.WriteFloat32(vec3.z);
+		}
 	};
 }

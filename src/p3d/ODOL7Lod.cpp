@@ -20,6 +20,9 @@
 //Class header
 #include <libBISMod/p3d/ODOL7Lod.hpp>
 //Local
+#include <libBISMod/p3d/MLOD_Lod.hpp>
+#include <libBISMod/p3d/MLOD.hpp>
+#include <libBISMod/p3d/ODOL7ModelInfo.hpp>
 #include "LZSS.hpp"
 //Namespaces
 using namespace libBISMod;
@@ -54,11 +57,11 @@ ODOL7Lod::~ODOL7Lod()
 	free(this->lodData.lodEdges.pODOLEdges);
 
 	//Polygons
-	repeat(this->lodData.polygons.nPolygons, i)
+	repeat(this->lodData.faces.nFaces, i)
 	{
-		free(this->lodData.polygons.pPolygons[i].pVertexIndices);
+		free(this->lodData.faces.pPolygons[i].pVertexIndices);
 	}
-	free(this->lodData.polygons.pPolygons);
+	free(this->lodData.faces.pPolygons);
 
 	//Lod Sections
 	free(this->lodData.lodSections.pSections);
@@ -101,12 +104,12 @@ ODOL7Lod::~ODOL7Lod()
 //Public methods
 uint32 ODOL7Lod::GetNumberOfPolygons() const
 {
-	return this->lodData.polygons.nPolygons;
+	return this->lodData.faces.nFaces;
 }
 
 void ODOL7Lod::GetPolygon(uint32 index, P3DPolygon &polygon) const
 {
-	uint16 textureIndex = this->lodData.polygons.pPolygons[index].textureIndex;
+	uint16 textureIndex = this->lodData.faces.pPolygons[index].textureIndex;
 	polygon.texturePath = this->lodData.textures[textureIndex];
 }
 
@@ -159,16 +162,16 @@ void ODOL7Lod::Write(OutputStream &outputStream) const
 	uncompressedSize = this->lodData.lodEdges.nODOLEdges * sizeof(*this->lodData.lodEdges.pODOLEdges);
 	WRITECOMPRESSED(this->lodData.lodEdges.pODOLEdges);
 
-	//Polygons
-	dataWriter.WriteUInt32(this->lodData.polygons.nPolygons);
-	dataWriter.WriteUInt32(this->lodData.polygons.offsetToLodSections);
+	//Faces
+	dataWriter.WriteUInt32(this->lodData.faces.nFaces);
+	dataWriter.WriteUInt32(this->lodData.faces.offsetToLodSections);
 
-	repeat(this->lodData.polygons.nPolygons, i)
+	repeat(this->lodData.faces.nFaces, i)
 	{
-		dataWriter.WriteUInt32(this->lodData.polygons.pPolygons[i].flags);
-		dataWriter.WriteUInt16(this->lodData.polygons.pPolygons[i].textureIndex);
-		dataWriter.WriteByte(this->lodData.polygons.pPolygons[i].type);
-		dataWriter.WriteBytes(this->lodData.polygons.pPolygons[i].pVertexIndices, this->lodData.polygons.pPolygons[i].type * sizeof(*this->lodData.polygons.pPolygons[i].pVertexIndices));
+		dataWriter.WriteUInt32(this->lodData.faces.pPolygons[i].flags);
+		dataWriter.WriteUInt16(this->lodData.faces.pPolygons[i].textureIndex);
+		dataWriter.WriteByte(this->lodData.faces.pPolygons[i].type);
+		dataWriter.WriteBytes(this->lodData.faces.pPolygons[i].pVertexIndices, this->lodData.faces.pPolygons[i].type * sizeof(*this->lodData.faces.pPolygons[i].pVertexIndices));
 	}
 
 	//Lod Sections
@@ -287,17 +290,17 @@ void ODOL7Lod::Read(InputStream& inputStream)
 	}
 
 	//Polygons
-	this->lodData.polygons.nPolygons = dataReader.ReadUInt32();
-	this->lodData.polygons.offsetToLodSections = dataReader.ReadUInt32();
-	this->lodData.polygons.pPolygons = (SPolygon *)malloc(this->lodData.polygons.nPolygons * sizeof(*this->lodData.polygons.pPolygons));
-	repeat(this->lodData.polygons.nPolygons, i)
+	this->lodData.faces.nFaces = dataReader.ReadUInt32();
+	this->lodData.faces.offsetToLodSections = dataReader.ReadUInt32();
+	this->lodData.faces.pPolygons = (SPolygon *)malloc(this->lodData.faces.nFaces * sizeof(*this->lodData.faces.pPolygons));
+	repeat(this->lodData.faces.nFaces, i)
 	{
-		this->lodData.polygons.pPolygons[i].flags = dataReader.ReadUInt32();
-		this->lodData.polygons.pPolygons[i].textureIndex = dataReader.ReadUInt16();
-		this->lodData.polygons.pPolygons[i].type = dataReader.ReadByte();
-		size = this->lodData.polygons.pPolygons[i].type * sizeof(*this->lodData.polygons.pPolygons[i].pVertexIndices);
-		this->lodData.polygons.pPolygons[i].pVertexIndices = (uint16 *)malloc(size);
-		dataReader.ReadBytes(this->lodData.polygons.pPolygons[i].pVertexIndices, size);
+		this->lodData.faces.pPolygons[i].flags = dataReader.ReadUInt32();
+		this->lodData.faces.pPolygons[i].textureIndex = dataReader.ReadUInt16();
+		this->lodData.faces.pPolygons[i].type = dataReader.ReadByte();
+		size = this->lodData.faces.pPolygons[i].type * sizeof(*this->lodData.faces.pPolygons[i].pVertexIndices);
+		this->lodData.faces.pPolygons[i].pVertexIndices = (uint16 *)malloc(size);
+		dataReader.ReadBytes(this->lodData.faces.pPolygons[i].pVertexIndices, size);
 	}
 
 	//Lod Sections

@@ -33,6 +33,12 @@ namespace libBISMod
 	{
 	public:
 		//Properties
+		inline StdXX::DynamicArray<RapArrayValue>& ArrayValue()
+		{
+			ASSERT_EQUALS(RapPacketType::RAP_PACKETTYPE_ARRAY, this->packetType);
+			return this->arrayValues;
+		}
+
 		inline const StdXX::DynamicArray<RapArrayValue>& ArrayValue() const
 		{
 			ASSERT_EQUALS(RapPacketType::RAP_PACKETTYPE_ARRAY, this->packetType);
@@ -45,6 +51,24 @@ namespace libBISMod
 			return this->embeddedPackets;
 		}
 
+		inline RapPacketType PacketType() const
+		{
+			return this->packetType;
+		}
+
+		inline const StdXX::String& VariableValueString() const
+		{
+			ASSERT_EQUALS(RapPacketType::RAP_PACKETTYPE_VARIABLE, this->packetType);
+			ASSERT_EQUALS(RapVariableType::RAP_VARIABLETYPE_STRING, this->varType);
+			return this->strValue;
+		}
+
+		inline RapVariableType VariableType() const
+		{
+			ASSERT_EQUALS(RapPacketType::RAP_PACKETTYPE_VARIABLE, this->packetType);
+			return this->varType;
+		}
+
 		//Methods
 		uint32 AddArrayValue(const RapArrayValue &refValue);
 		uint32 AddNode(const RapNode &refNode);
@@ -53,10 +77,6 @@ namespace libBISMod
 		void SetInheritedClassName(StdXX::String name);
 		void SetName(StdXX::String name);
 		void SetPacketType(RapPacketType type);
-		void SetValue(int32 i);
-		void SetValue(float32 f);
-		void SetValue(StdXX::String str);
-		void SetVariableType(ERapVariableType type);
 
 		//Inline
 		inline const RapNode& GetChildNode(uint32 index) const
@@ -80,16 +100,6 @@ namespace libBISMod
 			return this->embeddedPackets.GetNumberOfElements();
 		}
 
-		inline RapPacketType GetPacketType() const
-		{
-			return this->packetType;
-		}
-
-		inline ERapVariableType GetVariableType() const
-		{
-			return this->varType;
-		}
-
 		inline float32 GetVariableValueFloat() const
 		{
 			return this->fValue;
@@ -100,9 +110,22 @@ namespace libBISMod
 			return this->iValue;
 		}
 
-		inline StdXX::String GetVariableValueString() const
+		inline void SetValue(int32 i)
 		{
-			return this->strValue;
+			this->varType = RAP_VARIABLETYPE_INT;
+			this->iValue = i;
+		}
+
+		inline void SetValue(float32 f)
+		{
+			this->varType = RAP_VARIABLETYPE_FLOAT;
+			this->fValue = f;
+		}
+
+		inline void SetValue(StdXX::String str)
+		{
+			this->varType = RAP_VARIABLETYPE_STRING;
+			this->strValue = str;
 		}
 
 	private:
@@ -112,7 +135,7 @@ namespace libBISMod
 		StdXX::DynamicArray<RapArrayValue> arrayValues; //Only for array packet type
 		StdXX::DynamicArray<RapNode> embeddedPackets; //Only for class packet type
 		StdXX::String inheritedClassname; //Only for class packet type
-		ERapVariableType varType; //Only for variable packet type
+		RapVariableType varType; //Only for variable packet type
 		int32 iValue; //Only for variable packet type
 		float32 fValue; //Only for variable packet type
 		StdXX::String strValue; //Only for variable packet type
@@ -128,6 +151,12 @@ namespace libBISMod
 		}
 
 		//Inline
+		inline void ClearEnums()
+		{
+			this->enumCasingTable.Release();
+			this->enumTable.Release();
+		}
+
 		inline void DefineEnumValue(const StdXX::String& enumName, uint32 value)
 		{
 			this->enumTable[enumName] = value;
@@ -137,6 +166,12 @@ namespace libBISMod
 		inline bool IsEnumDefined(const StdXX::String& enumName) const
 		{
 			return this->enumCasingTable.Contains(enumName.ToLowercase());
+		}
+
+		inline uint32 ResolveEnum(const StdXX::String& enumName) const
+		{
+			auto correctCasing = this->enumCasingTable.Get(enumName.ToLowercase());
+			return this->enumTable.Get(correctCasing);
 		}
 
 	private:

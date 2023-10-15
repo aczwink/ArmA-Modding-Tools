@@ -59,45 +59,35 @@ static void ReadArrayValue(RapArrayValue *pValue, BinaryTreeMap<uint32, String> 
 	switch(valueType)
 	{
 		case RAP_ARRAYTYPE_STRING:
-			pValue->SetType(RAP_ARRAYTYPE_STRING);
 			pValue->SetValue(stringList[ReadIndexedString(stringList, file)]);
 			break;
 		case RAP_ARRAYTYPE_FLOAT:
 		{
-			float f;
-
-			pValue->SetType(RAP_ARRAYTYPE_FLOAT);
-			f = dataReader.ReadFloat32();
-
+			float32 f = dataReader.ReadFloat32();
 			pValue->SetValue(f);
 		}
-			break;
+		break;
 		case RAP_ARRAYTYPE_INT:
 		{
-			int32 i;
-
-			pValue->SetType(RAP_ARRAYTYPE_INT);
-			i = dataReader.ReadInt32();
-
+			int32 i = dataReader.ReadInt32();
 			pValue->SetValue(i);
 		}
-			break;
+		break;
 		case RAP_ARRAYTYPE_EMBEDDEDARRAY:
 		{
 			DynamicArray<RapArrayValue> embeddedArray;
 			uint32 nElements, index;
 
-			pValue->SetType(RAP_ARRAYTYPE_EMBEDDEDARRAY);
 			nElements = ReadCompressedInteger(file);
 
 			for(uint32 i = 0; i < nElements; i++)
 			{
 				index = embeddedArray.Push(RapArrayValue());
-				ReadArrayValue(&embeddedArray[index],  stringList, file);
+				ReadArrayValue(&embeddedArray[index], stringList, file);
 			}
-			pValue->SetValue(embeddedArray);
+			pValue->SetValue(Move(embeddedArray));
 		}
-			break;
+		break;
 	}
 }
 
@@ -185,7 +175,6 @@ static void ReadVariable(RapNode *pNode, BinaryTreeMap<uint32, String> &stringLi
 	switch(varType)
 	{
 		case RAP_VARIABLETYPE_STRING:
-			pNode->SetVariableType(RAP_VARIABLETYPE_STRING);
 			pNode->SetName(stringList[ReadIndexedString(stringList, file)]);
 			pNode->SetValue(stringList[ReadIndexedString(stringList, file)]);
 			break;
@@ -193,7 +182,6 @@ static void ReadVariable(RapNode *pNode, BinaryTreeMap<uint32, String> &stringLi
 		{
 			float f;
 
-			pNode->SetVariableType(RAP_VARIABLETYPE_FLOAT);
 			pNode->SetName(stringList[ReadIndexedString(stringList, file)]);
 			f = dataReader.ReadFloat32();
 
@@ -204,13 +192,12 @@ static void ReadVariable(RapNode *pNode, BinaryTreeMap<uint32, String> &stringLi
 		{
 			int32 i;
 
-			pNode->SetVariableType(RAP_VARIABLETYPE_INT);
 			pNode->SetName(stringList[ReadIndexedString(stringList, file)]);
 			i = dataReader.ReadInt32();
 
 			pNode->SetValue(i);
 		}
-			break;
+		break;
 	}
 }
 

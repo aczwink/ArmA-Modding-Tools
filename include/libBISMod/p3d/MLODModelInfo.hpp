@@ -18,7 +18,7 @@
  */
 #include <StdXX.hpp>
 //Local
-#include "MLOD_SP3X.hpp"
+#include "MLOD_Lod.hpp"
 #include "P3DModelInfo.hpp"
 
 namespace libBISMod
@@ -29,7 +29,11 @@ namespace libBISMod
 		//State
 		StdXX::String defaultPath;
 
-		//Constructor
+		//Constructors
+		inline MLODModelInfo()
+		{
+		}
+
 		inline MLODModelInfo(StdXX::InputStream& inputStream)
 		{
 			uint8 defaultPath[P3D_MLOD_SP3X_PATHLENGTH];

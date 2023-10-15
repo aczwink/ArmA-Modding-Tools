@@ -57,23 +57,3 @@ void RapNode::SetPacketType(RapPacketType type)
 {
 	this->packetType = type;
 }
-
-void RapNode::SetValue(int32 i)
-{
-	this->iValue = i;
-}
-
-void RapNode::SetValue(float32 f)
-{
-	this->fValue = f;
-}
-
-void RapNode::SetValue(String str)
-{
-	this->strValue = str;
-}
-
-void RapNode::SetVariableType(ERapVariableType type)
-{
-	this->varType = type;
-}

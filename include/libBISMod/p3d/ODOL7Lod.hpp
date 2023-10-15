@@ -123,10 +123,10 @@ namespace libBISMod
 		SLodEdges lodEdges;
 		struct
 		{
-			uint32 nPolygons;
+			uint32 nFaces;
 			uint32 offsetToLodSections;
 			SPolygon *pPolygons;
-		} polygons;
+		} faces;
 		struct
 		{
 			uint32 nSections;

@@ -130,10 +130,10 @@ static void WriteEnumTable(const BinaryTreeMap<String, uint32>& enumTable, TextW
 
 static void WriteRawRapArrayValue(RapArrayValue *pValue, TextWriter& textWriter)
 {
-	switch(pValue->GetType())
+	switch(pValue->Type())
 	{
 		case RAP_ARRAYTYPE_STRING:
-			textWriter << u8'"' << pValue->GetValueString() << u8'"';
+			textWriter << u8'"' << pValue->ValueString() << u8'"';
 			break;
 		case RAP_ARRAYTYPE_FLOAT:
 			textWriter << pValue->GetValueFloat();
@@ -165,7 +165,7 @@ static void WriteRawRapPacket(const RapNode& node, uint16 nTabs, TextWriter& tex
 {
 	PUTTABS;
 
-	switch(node.GetPacketType())
+	switch(node.PacketType())
 	{
 		case RAP_PACKETTYPE_CLASS:
 			textWriter << "class " << node.GetName();
@@ -181,7 +181,7 @@ static void WriteRawRapPacket(const RapNode& node, uint16 nTabs, TextWriter& tex
 				WriteRawRapPacket(node.GetChildNode(i), nTabs+1, textWriter);
 				if(i+1 != node.GetNumberOfEmbeddedPackages())
 				{
-					if(node.GetChildNode(i+1).GetPacketType() == RAP_PACKETTYPE_CLASS)
+					if(node.GetChildNode(i + 1).PacketType() == RAP_PACKETTYPE_CLASS)
 					{
 						textWriter << endl;
 					}
@@ -191,13 +191,13 @@ static void WriteRawRapPacket(const RapNode& node, uint16 nTabs, TextWriter& tex
 			textWriter << "};" << endl;
 			break;
 		case RAP_PACKETTYPE_VARIABLE:
-			switch(node.GetVariableType())
+			switch(node.VariableType())
 			{
 				case RAP_VARIABLETYPE_STRING:
 				{
 					String str;
 
-					str = node.GetVariableValueString();
+					str = node.VariableValueString();
 					str = str.Replace(u8"\"", "\"\""); //" is escaped by putting it double
 					textWriter << node.GetName() << " = \"" << str << "\";" << endl;
 				}

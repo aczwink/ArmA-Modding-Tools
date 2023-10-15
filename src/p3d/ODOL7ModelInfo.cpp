@@ -19,6 +19,9 @@
 #include <StdXX.hpp>
 //Class header
 #include <libBISMod/p3d/ODOL7ModelInfo.hpp>
+//Local
+#include <libBISMod/p3d/MLODModelInfo.hpp>
+#include <libBISMod/p3d/P3D.hpp>
 #include "LZSS.hpp"
 //Namespaces
 using namespace libBISMod;

@@ -23,13 +23,14 @@
 #include <libBISMod/p3d/ODOL7Lod.hpp>
 #include <libBISMod/p3d/ODOL7ModelInfo.hpp>
 #include <libBISMod/p3d/MLOD.hpp>
-#include <libBISMod/p3d/MLOD_SP3X.hpp>
-#include <libBISMod/p3d/MLOD_P3DM.hpp>
+#include <libBISMod/p3d/MLOD_Lod.hpp>
 #include <libBISMod/p3d/MLODModelInfo.hpp>
 #include "Definitions.hpp"
 //Namespaces
 using namespace libBISMod;
 using namespace StdXX;
+//Definitions
+#define P3D_HEADER_VERSION_MLOD 0x101
 
 struct P3DHeader
 {
@@ -75,26 +76,7 @@ static UniquePointer<P3DLod> ReadLod(P3DType type, InputStream& inputStream)
 	switch(type)
 	{
 		case P3DType::MLOD:
-		{
-			MLOD_LodHeader header;
-
-			DataReader dataReader(false, inputStream);
-
-			dataReader.ReadBytes(&header.signature, sizeof(header.signature));
-			header.versionMajor = dataReader.ReadUInt32();
-			header.versionMinor = dataReader.ReadUInt32();
-
-			if(String::CopyUtf8Bytes(header.signature, sizeof(header.signature)) == P3D_LODHEADER_SP3X_SIGNATURE)
-			{
-				return new MLOD_SP3X_Lod(inputStream);
-			}
-			else if(String::CopyUtf8Bytes(header.signature, sizeof(header.signature)) == P3D_LODHEADER_P3DM_SIGNATURE)
-			{
-				return new MLOD_P3DM_Lod(inputStream);
-			}
-			else
-				NOT_IMPLEMENTED_ERROR; //TODO: implement me
-		}
+			return new MLOD_Lod(inputStream);
 		case P3DType::ODOL7:
 			return new ODOL7Lod(inputStream);
 	}
@@ -112,6 +94,25 @@ static UniquePointer<P3DModelInfo> ReadModelInfo(P3DType type, InputStream& inpu
 }
 
 //Public methods
+UniquePointer<P3DData> P3DData::Convert(LodType targetLodType) const
+{
+	P3DType targetType = this->MapLodTypeToP3DType(targetLodType);
+	UniquePointer<P3DData> mapped = new P3DData(targetType);
+
+	for(uint32 i = 0; i < this->lods.GetNumberOfElements(); i++)
+	{
+		auto mappedLod = this->ConvertLod(i, targetLodType);
+		mapped->lods.Push(Move(mappedLod));
+	}
+
+	if(targetLodType == LodType::ODOL7)
+		NOT_IMPLEMENTED_ERROR; //TODO: implement me
+	else
+		mapped->modelInfo = new MLODModelInfo;
+
+	return mapped;
+}
+
 void P3DData::Write(OutputStream& outputStream) const
 {
 	DataWriter dataWriter(false, outputStream);
@@ -135,6 +136,116 @@ void P3DData::Write(OutputStream& outputStream) const
 		lod->Write(outputStream);
 
 	this->modelInfo->Write(outputStream);
+}
+
+//Private methods
+UniquePointer<P3DLod> P3DData::ConvertLod(uint32 lodIndex, LodType targetType) const
+{
+	switch(this->type)
+	{
+		case P3DType::ODOL7:
+		{
+			switch(targetType)
+			{
+				case LodType::MLOD_SP3X:
+				case LodType::MLOD_P3DM:
+					return this->ConvertODOL7LodToMLOD(*this->lods[lodIndex], targetType, lodIndex);
+			}
+		}
+		break;
+	}
+
+	NOT_IMPLEMENTED_ERROR; //TODO: implement me
+	return UniquePointer<P3DLod>();
+}
+
+StdXX::UniquePointer<P3DLod> P3DData::ConvertODOL7LodToMLOD(const P3DLod& sourceLod, LodType targetType, uint32 lodIndex) const
+{
+	const auto& src = dynamic_cast<const ODOL7Lod &>(sourceLod).lodData;
+	const ODOL7ModelInfo& odol7ModelInfo = dynamic_cast<const ODOL7ModelInfo&>(*this->modelInfo);
+
+	UniquePointer<MLOD_Lod> sp3xLod = new MLOD_Lod(targetType == LodType::MLOD_SP3X);
+	auto& dest = *sp3xLod;
+
+	dest.unknownFlags = 0;
+	dest.vertices.Resize(src.vertexTable.nVertices);
+	dest.faceNormals.Resize(src.vertexTable.nNormals);
+	dest.faces.Resize(src.faces.nFaces);
+
+	for(uint32 i = 0; i < src.vertexTable.nVertices; i++)
+	{
+		auto& v = dest.vertices[i];
+		v.pos = src.vertexTable.pVertices[i] + odol7ModelInfo.modelInfo.centreOfGravity;
+		v.flags = src.vertexTable.pVerticesFlags[i];
+	}
+
+	for(uint32 i = 0; i < src.vertexTable.nNormals; i++)
+	{
+		dest.faceNormals[i] = src.vertexTable.pNormals[i];
+	}
+
+	for(uint32 i = 0; i < src.faces.nFaces; i++)
+	{
+		auto& destFace = dest.faces[i];
+		const auto& srcFace = src.faces.pPolygons[i];
+
+		destFace.type = static_cast<MLOD_FaceType>(srcFace.type);
+		for(uint8 j = 0; j < (uint8)destFace.type; j++)
+		{
+			//TODO: MLOD and ODOL have reversed vertex order (one is clockwise, the other one is counter-clock wise). Document the order for each. In addition, compared to mlod, odol starts with the second vertex
+			uint8 verticesPerFace = (uint8)destFace.type;
+			uint8 odol2MlodVertexTableIndex = ( ((verticesPerFace - 1_u8) - j) + (verticesPerFace - 2_u8) ) % verticesPerFace;
+
+			uint16 vertexTableIndex = srcFace.pVertexIndices[odol2MlodVertexTableIndex];
+
+			destFace.vertexTables[j].normalIndex = vertexTableIndex;
+			destFace.vertexTables[j].vertexIndex = vertexTableIndex;
+			destFace.vertexTables[j].u = src.vertexTable.pUVPairs[vertexTableIndex].e[0];
+			destFace.vertexTables[j].v = src.vertexTable.pUVPairs[vertexTableIndex].e[1];
+		}
+		if(destFace.type == MLOD_FaceType::Triangle)
+		{
+			MemZero(&destFace.vertexTables[3], sizeof(destFace.vertexTables));
+		}
+
+		destFace.flags = srcFace.flags;
+		destFace.texturePath = src.textures[srcFace.textureIndex];
+	}
+
+	for(uint32 i = 0; i < src.namedSelections.nSelections; i++)
+	{
+		const auto& srcSelection = src.namedSelections.pSelections[i];
+
+		MLOD_Tag tag;
+		tag.name = srcSelection.name;
+		tag.payload.Resize(dest.vertices.GetNumberOfElements() + dest.faces.GetNumberOfElements());
+
+		MemZero(tag.payload.Data(), tag.payload.Size());
+
+		for(uint32 j = 0; j < srcSelection.nVertexTableIndices; j++)
+			tag.payload[srcSelection.pVertexTableIndices[j]] = 1;
+
+		for(uint32 j = 0; j < srcSelection.nPolygons; j++)
+			tag.payload[dest.vertices.GetNumberOfElements() + srcSelection.pPolygonIndices[j]] = 1;
+
+		dest.tags.Push(Move(tag));
+	}
+
+	dest.resolution = odol7ModelInfo.modelInfo.resolutions[lodIndex];
+
+	return sp3xLod;
+}
+
+P3DType P3DData::MapLodTypeToP3DType(LodType lodType) const
+{
+	switch(lodType)
+	{
+		case LodType::MLOD_SP3X:
+		case LodType::MLOD_P3DM:
+			return P3DType::MLOD;
+		case LodType::ODOL7:
+			return P3DType::ODOL7;
+	}
 }
 
 //Namespace functions
