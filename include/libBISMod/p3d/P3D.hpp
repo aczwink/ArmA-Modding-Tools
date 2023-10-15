@@ -48,11 +48,17 @@ namespace libBISMod
 		}
 
 		//Methods
+		StdXX::UniquePointer<P3DData> Convert(LodType targetLodType) const;
 		void Write(StdXX::OutputStream& outputStream) const;
 
 	private:
 		//State
 		P3DType type;
+
+		//Methods
+		StdXX::UniquePointer<P3DLod> ConvertLod(uint32 lodIndex, LodType targetType) const;
+		StdXX::UniquePointer<P3DLod> ConvertODOL7LodToMLOD(const P3DLod& sourceLod, LodType targetType, uint32 lodIndex) const;
+		P3DType MapLodTypeToP3DType(LodType lodType) const;
 	};
 
 	StdXX::String LodResolutionToString(float resolutiuon);

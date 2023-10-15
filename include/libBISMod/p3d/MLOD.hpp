@@ -19,9 +19,7 @@
 #pragma once
 #include <StdXXCore.hpp>
 //Definitions
-#define P3D_HEADER_VERSION_MLOD 0x101
-
-#define P3D_TAGGS_ENDOFFILE "#EndOfFile#"
+#define P3D_MLOD_SP3X_PATHLENGTH 32
 
 #define VERTEX_FLAG_NORMAL							0
 #define VERTEX_FLAG_SURFACE_ONSURFACE				0x1
@@ -51,6 +49,12 @@
 
 namespace libBISMod
 {
+	//Enums
+	enum class MLOD_FaceType
+	{
+		Triangle = 3,
+		Quadrilateral = 4,
+	};
 	//Structures
 	struct MLOD_LodHeader
 	{
@@ -59,18 +63,31 @@ namespace libBISMod
 		uint32 versionMinor;
 	};
 
-	struct MLOD_Polygon
+	struct MLOD_Face
 	{
-		uint32 type;
+		MLOD_FaceType type;
 		struct
 		{
-			uint32 verticesIndex;
-			uint32 normalsIndex;
+			uint32 vertexIndex;
+			uint32 normalIndex;
 			float32 u;
 			float32 v;
 		} vertexTables[4];
 		uint32 flags;
 		StdXX::String texturePath;
 		StdXX::String materialName;
+	};
+
+	struct MLOD_Tag
+	{
+		bool active;
+		StdXX::String name;
+		StdXX::DynamicByteBuffer payload;
+	};
+
+	struct MLOD_Vertex
+	{
+		StdXX::Math::Vector3S pos;
+		uint32 flags;
 	};
 }
