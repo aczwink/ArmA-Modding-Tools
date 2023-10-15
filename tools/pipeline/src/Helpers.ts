@@ -81,23 +81,54 @@ export function Exec(command: string[], workingDirectory?: string, env?: NodeJS.
 
 export async function IsNewer(sourcePath: string, targetPath: string)
 {
-    async function QueryPathChangeDate(path: string)
+    async function QueryStat(pathToQuery: string)
     {
         try
         {
-            const stats = await fs.promises.stat(path);
-            return stats.mtimeMs;
+            const stats = await fs.promises.stat(pathToQuery);
+            return stats;
         }
         catch(e: any)
         {
             if(e.code === "ENOENT")
-                return -1;
+                return undefined;
             throw e;
         }
     }
 
-    const a = await QueryPathChangeDate(sourcePath);
-    const b = await QueryPathChangeDate(targetPath);
+    async function QueryPathChangeDate(pathToQuery: string): Promise<number | undefined>
+    {
+        const stats = await QueryStat(pathToQuery);
+        if(stats === undefined)
+            return undefined;
 
-    return a > b;
+        if(stats.isDirectory())
+        {
+            const children = await fs.promises.readdir(pathToQuery, "utf-8");
+            const childResults = await children.Values().Map(x => QueryPathChangeDate(path.join(pathToQuery, x))).PromiseAll();
+
+            return Math.max(...childResults.Values().NotUndefined().ToArray(), stats.mtimeMs);
+        }
+        return stats.mtimeMs;
+    }
+
+    const a = await QueryStat(sourcePath);
+    if(a === undefined)
+        throw new Error("Source file does not exist: " + sourcePath);
+
+    const b = await QueryStat(targetPath);
+    if(b === undefined)
+        return true;
+
+    if(a.isDirectory())
+    {
+        const ta = await QueryPathChangeDate(sourcePath);
+        const tb = await QueryPathChangeDate(targetPath);
+
+        return ta! > tb!;
+    }
+
+    if(a.size !== b.size)
+        return true;
+    return a.mtimeMs > b.mtimeMs;
 }

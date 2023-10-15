@@ -24,7 +24,7 @@ import YAML from 'yaml'
 import { CompileConfigStep, CopyFilesStep, ImportFilesStep, PackArchiveStep, PipelineDefinition, PipelineStep, RepackArchiveStep } from "./PipelineDefinition";
 import { PBOFileCatalog } from "./PBOFileCatalog";
 import { GameFileCatalog } from "./GameFileCatalog";
-import { CallLocalBin, EnsureDirectoryExists, Exec, IsNewer, __SetBinDir } from "./Helpers";
+import { CallLocalBin, DeleteIfExisting, EnsureDirectoryExists, Exec, IsNewer, __SetBinDir } from "./Helpers";
 
 interface EnvironmentConfig
 {
@@ -41,7 +41,7 @@ async function RunCompileConfigJob(step: CompileConfigStep, env: EnvironmentConf
     const targetFilePath = path.join(env.vars["target"], step.targetFolder, parsed.name + ".bin");
 
     await EnsureDirectoryExists(path.dirname(targetFilePath));
-    if(await IsNewer(sourceFilePath, targetFilePath))
+    if(await IsNewer(path.dirname(sourceFilePath), targetFilePath))
         await CallLocalBin("raPEdit", [sourceFilePath, ">", targetFilePath]);
 }
 
@@ -60,7 +60,8 @@ async function RunCopyFilesJob(step: CopyFilesStep, env: dotenv.DotenvParseOutpu
         const relativePath = path.relative(sourcePath, sourceFilePath);
         const targetFilePath = path.join(targetPath, relativePath);
 
-        if(fs.existsSync(targetFilePath))
+        const isNewer = await IsNewer(sourceFilePath, targetFilePath);
+        if(!isNewer)
             continue;
         if(fs.statSync(sourceFilePath).isDirectory())
         {
@@ -93,17 +94,46 @@ async function RunImportFilesJob(step: ImportFilesStep, env: EnvironmentConfig)
     const packTempPath = path.join(tempPath, "pack");
     await EnsureDirectoryExists(packTempPath);
 
-    const pboCatalog = new PBOFileCatalog(env.archivesPath, env.pbosTempPath);
+    const pboCatalog = new PBOFileCatalog(env.archivesPath, env.pbosTempPath, step.ignore);
     const fileCatalog = new GameFileCatalog(jobsTempPath, packTempPath, pboCatalog);
     for (const source of step.sources)
     {
-        for (const pbo of source.pbos)
-            pboCatalog.AddPBO(path.join(sourcePath, source.name), pbo);
-
-        for (const file of source.files)
+        switch(source.type)
         {
-            const sourcePath = await pboCatalog.ProvideFile(file);
-            await fileCatalog.MarkForImport(file, sourcePath!);
+            case "Archive":
+            {
+                for (const pbo of source.pbos)
+                    pboCatalog.AddPBO(path.join(sourcePath, source.name), pbo);
+            }
+            break;
+        }
+    }
+
+    for (const source of step.sources)
+    {
+        switch(source.type)
+        {
+            case "Archive":
+            {
+                for (const file of source.files)
+                {
+                    const sourceGamePath = (typeof file === "string") ? file : file.sourceFileName;
+                    const targetName = (typeof file === "string") ? undefined : file.targetName;
+
+                    const sourcePath = await pboCatalog.ProvideFile(sourceGamePath);
+                    await fileCatalog.MarkForImport(sourceGamePath, sourcePath!, targetName);
+                }
+            }
+            break;
+            case "FileSystem":
+            {
+                const sourcePath = env.vars[source.source];
+                for (const file of source.files)
+                {
+                    await fileCatalog.MarkForImport(file, path.join(sourcePath, file));
+                }
+            }
+            break;
         }
     }
     fileCatalog.RenameUnmarked();
@@ -116,9 +146,15 @@ async function RunImportFilesJob(step: ImportFilesStep, env: EnvironmentConfig)
 async function RunPackArchiveJob(step: PackArchiveStep, env: dotenv.DotenvParseOutput)
 {
     const sourcePath = path.join(env[step.source], step.source_folder);
-    const targetPath = path.join(env["target"], step.target_folder, path.basename(step.source_folder) + ".pbo");
-    if(!fs.existsSync(targetPath))
+    const targetName = step.targetFileName ?? path.basename(step.source_folder);
+    const targetPath = path.join(env["target"], step.target_folder, targetName + ".pbo");
+
+    const isNewer = await IsNewer(sourcePath, targetPath);
+    if(isNewer)
+    {
+        await DeleteIfExisting(targetPath);
         await CallLocalBin("ArC", ["pack", sourcePath, targetPath]);
+    }
 }
 
 async function RunRepackArchiveJob(step: RepackArchiveStep, env: EnvironmentConfig)
@@ -128,7 +164,7 @@ async function RunRepackArchiveJob(step: RepackArchiveStep, env: EnvironmentConf
     const repackPath = path.join(env.tempPath, "repack");
     await EnsureDirectoryExists(repackPath);
 
-    const pboCatalog = new PBOFileCatalog(env.archivesPath, env.pbosTempPath);
+    const pboCatalog = new PBOFileCatalog(env.archivesPath, env.pbosTempPath, []);
     const pboPath = await pboCatalog.MountPBO(path.join(sourcePath, step.source.name), step.source.pbo);
 
     const targetPath = path.join(repackPath, step.targetPboName);

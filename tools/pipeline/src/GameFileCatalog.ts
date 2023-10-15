@@ -49,9 +49,11 @@ export class GameFileCatalog
         }
     }
 
-    public async MarkForImport(gamePath: string, sourcePath: string)
+    public async MarkForImport(gamePath: string, sourcePath: string, targetName?: string)
     {
         await this.MarkForImportImpl(gamePath, sourcePath, true);
+        if(targetName !== undefined)
+            this.files[gamePath]!.newName = targetName;
     }
 
     public async PackArchives(targetPath: string)
@@ -107,13 +109,16 @@ export class GameFileCatalog
         const extension = path.extname(sourcePath).substring(1);
         switch(extension)
         {
+            case "ogg":
             case "paa":
+            case "pac":
+            case "rtm":
                 return new Set();
             case "p3d":
                 const data = await CallLocalBin("p3dEdit", [sourcePath, "json"]);
                 const lods = JSON.parse(data).lods as P3DLod[];
 
-                return lods.Values().Map(x => x.polygons.Values()).Flatten().Map(x => x.texturePath.ReplaceAll("\\", "/")).ToSet();
+                return lods.Values().Map(x => x.polygons.Values()).Flatten().Map(x => x.texturePath.ReplaceAll("\\", "/")).Filter(x => x.length > 0).ToSet();
             case "wrp":
             {
                 const data = await CallLocalBin("wrpEdit", [sourcePath, "json"]);
@@ -123,7 +128,7 @@ export class GameFileCatalog
                 return modelFilePaths;
             }
             default:
-                throw new Error("Method not implemented: " + extension);
+                throw new Error("AnalyzeDependencies: " + extension);
         }
     }
 
@@ -144,10 +149,25 @@ export class GameFileCatalog
 
     private BuildTargetGamePath(gamePath: string)
     {
-        const parsed = path.parse(gamePath);
+        function ExtractIntermediatePaths()
+        {
+            const parts = gamePath.split("/");
+            return parts.slice(1, parts.length - 1).join("/");
+        }
 
-        const folderName = this.MapExtensionToFolderName(parsed.ext.substring(1));
-        const fileName = (this.files[gamePath]?.newName ?? parsed.name) + parsed.ext;
+        const parsed = path.parse(gamePath);
+        const metadata = this.files[gamePath]!;
+
+        const ext = parsed.ext.substring(1);
+        let folderName = this.MapExtensionToFolderName(ext);
+
+        if( (metadata.newName === undefined) && ((ext === "paa") || (ext === "pac")) )
+        {
+            const intermediate = ExtractIntermediatePaths();
+            if(intermediate.length > 0)
+                folderName = path.join(folderName, intermediate);
+        }
+        const fileName = (metadata.newName ?? parsed.name) + parsed.ext;
 
         return path.join(folderName, fileName);
     }
@@ -168,6 +188,7 @@ export class GameFileCatalog
         if(dependencyMap.length === 0)
         {
             await fs.promises.copyFile(metadata.sourcePath, targetPath);
+            await fs.promises.chmod(targetPath, 0o664);
         }
         else
         {
@@ -206,10 +227,15 @@ export class GameFileCatalog
     {
         switch(extension)
         {
+            case "ogg":
+                return "sounds";
             case "paa":
-                return "text";
+            case "pac":
+                return "tex";
             case "p3d":
                 return "models";
+            case "rtm":
+                return "animations";
             case "wrp":
                 return "worlds";
         }

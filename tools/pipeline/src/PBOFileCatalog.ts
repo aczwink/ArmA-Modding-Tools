@@ -36,7 +36,7 @@ interface PBOCasingInfo
 
 export class PBOFileCatalog
 {
-    constructor(private archivesTempPath: string, private pbosTempPath: string)
+    constructor(private archivesTempPath: string, private pbosTempPath: string, private ignoreReportingForPBOs: string[])
     {
         this.pbos = {};
         this.pboCasing = {};
@@ -89,7 +89,8 @@ export class PBOFileCatalog
 
         if(casingInfo === undefined)
         {
-            console.error("Missing file: " + caseInsensitivePath);
+            if(!this.ignoreReportingForPBOs.Contains(pboNameWrongCase.toLowerCase()))
+                console.error("Missing file: " + caseInsensitivePath);
             return undefined;
         }
         if(casingInfo.node === null)
@@ -161,13 +162,36 @@ export class PBOFileCatalog
 
     private async ExtractPBOFromArchive(pboInfo: PBOInfo)
     {
-        if(path.extname(pboInfo.archiveFilePath) === ".exe")
+        switch(path.extname(pboInfo.archiveFilePath).substring(1))
         {
-            await Exec(["7z", "x", "-aos", "-i!" + pboInfo.pboPath, pboInfo.archiveFilePath], this.archivesTempPath);
-            await this.UncompressPBO(pboInfo.pboPath);
+            case "7z":
+                await Exec(["7z", "x", "-aos", "-i!" + pboInfo.pboPath, pboInfo.archiveFilePath], this.archivesTempPath);
+                break;
+            case "exe":
+            {
+                try
+                {
+                    await Exec(["7z", "x", "-aos", "-i!" + pboInfo.pboPath, pboInfo.archiveFilePath], this.archivesTempPath);
+                }
+                catch(e: any)
+                {
+                    if(e.code === 2)
+                    {
+                        await Exec(["unrar", "x", "-o+", pboInfo.archiveFilePath, pboInfo.pboPath], this.archivesTempPath);
+                    }
+                    else
+                        throw e;
+                }
+            }
+            break;
+            case "rar":
+                await Exec(["unrar", "x", "-o+", pboInfo.archiveFilePath, pboInfo.pboPath], this.archivesTempPath);
+                break;
+            default:
+                throw new Error("ExtractPBOFromArchive: " + path.extname(pboInfo.archiveFilePath));
         }
-        else
-            throw new Error("Method not implemented: " + path.extname(pboInfo.archiveFilePath));
+
+        await this.UncompressPBO(pboInfo.pboPath);
     }
 
     private GamePathToFileSystemPath(gamePath: string)
