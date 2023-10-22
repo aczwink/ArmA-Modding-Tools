@@ -21,10 +21,12 @@ import fs from "fs";
 import { glob } from "glob";
 import path from "path";
 import YAML from 'yaml'
-import { CompileConfigStep, CopyFilesStep, ImportFilesStep, PackArchiveStep, PipelineDefinition, PipelineStep, RepackArchiveStep } from "./PipelineDefinition";
+import { BuildDtaExtStep, CompileConfigStep, CopyFilesStep, ImportFilesStep, PackArchiveStep, PipelineDefinition, PipelineStep, RepackArchiveStep } from "./PipelineDefinition";
 import { PBOFileCatalog } from "./PBOFileCatalog";
 import { GameFileCatalog } from "./GameFileCatalog";
 import { CallLocalBin, DeleteIfExisting, EnsureDirectoryExists, Exec, IsNewer, __SetBinDir } from "./Helpers";
+import { XMLParser } from "fast-xml-parser";
+import { Dictionary } from "acts-util-core";
 
 interface EnvironmentConfig
 {
@@ -32,6 +34,185 @@ interface EnvironmentConfig
     pbosTempPath: string;
     tempPath: string;
     vars: dotenv.DotenvParseOutput
+}
+
+async function RunBuildDtaExtJob(step: BuildDtaExtStep, env: EnvironmentConfig)
+{
+    function Capitalize(word: string)
+    {
+        return word.charAt(0).toUpperCase() + word.substring(1);
+    }
+    function PropertyToString(propertyName: string)
+    {
+        switch(propertyName)
+        {
+            case "caliber":
+                return "Cal.";
+            case "cyclicRate":
+                return "Cyclic rate";
+            case "effectiveCasualtyProducingRadius":
+                return "Effective Casualty-Producing <br>Radius";
+            case "fragmentationRadius":
+                return "Fragmentation Radius";
+            case "killRadius":
+                return "Kill Radius";
+            case "launcherCaliber":
+                return "Launcher cal.";
+            case "launcherWeight":
+                return "Launcher weight";
+            case "maxRange":
+                return "Max. range";
+            case "muzzleVelocity":
+                return "Muzzle vel.";
+        }
+        return Capitalize(propertyName);
+    }
+
+    const idMapPath = path.join(env.vars[step.id_map.source], step.id_map.filePath);
+    const idMapRaw = await fs.promises.readFile(idMapPath, "utf-8");
+    const lines = idMapRaw.split("\n");
+    const regEx = new RegExp(step.id_map.regExp);
+    const idMap: Dictionary<string> = {};
+    for (const line of lines)
+    {
+        const match = line.trim().match(regEx);
+        if(match !== null)
+        {
+            idMap[match.groups!.from] = match.groups!.to;
+        }
+    }
+
+
+    const sourcePath = env.vars[step.sourceLocation];
+
+    const children = await fs.promises.readdir(sourcePath, "utf-8");
+    const items = [];
+    for (const child of children)
+    {
+        const raw = await fs.promises.readFile(path.join(sourcePath, child));
+        const parser = new XMLParser();
+        const parsed = parser.parse(raw);
+
+        const parsedPath = path.parse(child);
+        const type = ("weapon" in parsed) ? "weapon" : "item";
+        items.push({
+            id: parsedPath.name,
+            type,
+            ...parsed[type]
+        });
+    }
+
+    let equipmentHtml = `
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=windows-1250">
+<title>Equip</title>
+</head>
+<body bgcolor="#FFFFFF">
+`;
+
+    for (const item of items)
+    {
+        const props = (typeof item.properties === "string") ? "" : item.properties.Entries().Map( (kv: any) => "<b>" + PropertyToString(kv.key) + ":</b> " + kv.value + "<br>").Join("\n");
+        const id = idMap[item.id] ?? item.id;
+        const img = (item.type === "item") ? ("@equip\\m\\m_" + id + ".paa") : ("@equip\\w\\w_" + id + ".paa");
+
+        equipmentHtml += `
+<h1 align="center"><a name="EQ_${id}"></a>${item.title}</h1>
+<h2 align="center"><a name="EQ_${id}"></a>${item.category}</h2>
+<br>
+<p align="center"><img src="${img}" width="140" height="70"></p>
+
+<h4><br>${item.description}</h4>
+
+<h4><br><a href="#${id}_page2">Parameters</a></h4>
+<address>
+    <a href="#equipment"><img src="sipka_left.paa" border="0" width="20" height="20"></a> 
+</address>
+<hr>
+
+<h1 align="center">${item.title}</h1>
+<h2 align="center"><a name="${id}_page2"></a>Parameters</h2>
+<br><h3 align="center"><img src="${img}" width="140"
+height="70"></h3>
+
+<h4>
+<br>${props}
+</h4>
+<div align="right">
+
+<address>
+    <a href="#EQ_${id}"><img src="sipka_left.paa" border="0"
+    width="20" height="20"></a> 
+</address>
+</div>
+<hr>
+        `;
+    }
+
+    equipmentHtml += "</body></html>";
+
+    const dtaextTempPath = path.join(env.tempPath, "dtaext");
+    const equipTempPath = path.join(dtaextTempPath, "equip");
+    await EnsureDirectoryExists(equipTempPath);
+
+    const magsPath = path.join(equipTempPath, "m");
+    const weaponsPath = path.join(equipTempPath, "w");
+
+    await EnsureDirectoryExists(magsPath);
+    await EnsureDirectoryExists(weaponsPath);
+
+    const langs = [".French", ".german", "", ".Italian", ".Spanish"];
+    for (const lang of langs)
+    {
+        await fs.promises.writeFile(path.join(equipTempPath, "equipment" + lang + ".html"), equipmentHtml, "utf-8");
+    }
+
+    //images
+    const pboCatalog = new PBOFileCatalog(env.archivesPath, env.pbosTempPath, []);
+
+    for (const imgSrc of step.imageSources)
+    {
+        const imgSourcePath = env.vars[imgSrc.sourceLocation];
+
+        for (const pbo of imgSrc.pbos)
+            pboCatalog.AddPBO(path.join(imgSourcePath, imgSrc.name), pbo);
+
+        for (const fileEntry of imgSrc.files)
+        {
+            const sourceFilePath = await pboCatalog.ProvideFile(fileEntry.sourceFileName);
+
+            let targetFolderPath, prefix;
+            switch(fileEntry.type)
+            {
+                case "base":
+                    targetFolderPath = equipTempPath;
+                    prefix = "";
+                    break;
+                case "magazine":
+                    targetFolderPath = magsPath;
+                    prefix = "m_";
+                    break;
+                case "weapon":
+                    targetFolderPath = weaponsPath;
+                    prefix = "w_";
+                    break;
+            }
+
+            const mappedId = idMap[fileEntry.targetName] ?? fileEntry.targetName;
+            const targetFilePath = path.join(targetFolderPath, prefix + mappedId + ".paa");
+
+            await fs.promises.copyFile(sourceFilePath, targetFilePath);
+            await fs.promises.chmod(targetFilePath, 0o664);
+        }
+    }
+
+    //pack pbo
+    const targetPath = path.join(env.vars["target"], "Dta", "DTAEXT.PBO");
+    await DeleteIfExisting(targetPath);
+    await CallLocalBin("ArC", ["pack", dtaextTempPath, targetPath]);
 }
 
 async function RunCompileConfigJob(step: CompileConfigStep, env: EnvironmentConfig)
@@ -202,6 +383,9 @@ async function RunStep(step: PipelineStep, env: EnvironmentConfig)
 {
     switch(step.type)
     {
+        case "BuildDtaExt":
+            await RunBuildDtaExtJob(step, env);
+            break;
         case "CompileConfig":
             await RunCompileConfigJob(step, env);
             break;

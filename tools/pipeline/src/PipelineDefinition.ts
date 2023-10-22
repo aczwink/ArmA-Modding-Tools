@@ -16,6 +16,31 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
+interface DtaExtStepFileEntry
+{
+    sourceFileName: string;
+    type: "base" | "magazine" | "weapon";
+    targetName: string;
+}
+
+export interface BuildDtaExtStep
+{
+    type: "BuildDtaExt";
+    sourceLocation: string;
+    id_map: {
+        source: string;
+        filePath: string;
+        regExp: string;
+    };
+    imageSources: {
+        type: "Archive";
+        sourceLocation: string;
+        name: string;
+        pbos: string[];
+        files: DtaExtStepFileEntry[];
+    }[];
+}
+
 export interface CompileConfigStep
 {
     type: "CompileConfig";
@@ -91,7 +116,7 @@ export interface RepackArchiveStep
     };
 }
 
-export type PipelineStep = CompileConfigStep | CopyFilesStep | Create7zArchiveStep | ImportFilesStep | PackArchiveStep | RepackArchiveStep;
+export type PipelineStep = BuildDtaExtStep | CompileConfigStep | CopyFilesStep | Create7zArchiveStep | ImportFilesStep | PackArchiveStep | RepackArchiveStep;
 
 export interface PipelineDefinition
 {
