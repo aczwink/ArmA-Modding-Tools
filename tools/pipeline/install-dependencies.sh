@@ -1,1 +1,1 @@
-sudo apt install p7zip-full
+sudo apt install p7zip-full unrar

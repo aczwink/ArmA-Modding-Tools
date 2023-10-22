@@ -36,16 +36,31 @@ interface Create7zArchiveStep
     type: "Create7zArchive";
 }
 
+type ImportFilesFileDefinition = string | { sourceFileName: string; targetName: string; };
+
+interface ImportFilesArchiveSourceDefinition
+{
+    type: "Archive";
+    name: string;
+    pbos: string[];
+    files: ImportFilesFileDefinition[];
+}
+
+interface ImportFilesFileSystemSourceDefinition
+{
+    type: "FileSystem";
+    source: string;
+    files: string[];
+}
+
+type ImportFilesSourceDefinition = ImportFilesArchiveSourceDefinition | ImportFilesFileSystemSourceDefinition;
+
 export interface ImportFilesStep
 {
     type: "ImportFiles";
+    ignore: string[];
     source: string;
-    sources: {
-        type: "Archive";
-        name: string;
-        pbos: string[];
-        files: string[];
-    }[];
+    sources: ImportFilesSourceDefinition[];
 }
 
 export interface PackArchiveStep
@@ -54,6 +69,7 @@ export interface PackArchiveStep
     source: string;
     source_folder: string;
     target_folder: string;
+    targetFileName?: string;
 }
 
 export interface RepackArchiveStep
