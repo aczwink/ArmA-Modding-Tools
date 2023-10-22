@@ -28,6 +28,7 @@ namespace libBISMod
 		virtual ~WorldObject() = default;
 
 		//Methods
+		virtual uint32 GetId() const = 0;
 		virtual StdXX::String GetModelFilePath() const = 0;
 		virtual void SetModelFilePath(const StdXX::String& modelFilePath) = 0;
 	};

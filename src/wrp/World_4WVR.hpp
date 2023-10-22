@@ -35,8 +35,8 @@ public:
 	StdXX::String p3dFileName;
 
 	//Methods
+	uint32 GetId() const override;
 	StdXX::String GetModelFilePath() const override;
-
 	void SetModelFilePath(const StdXX::String &modelFilePath) override;
 };
 

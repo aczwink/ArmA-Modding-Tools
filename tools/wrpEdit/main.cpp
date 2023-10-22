@@ -32,8 +32,11 @@ static void dump_json(const World& world)
 	for(uint32 i = 0; i < world.GetNumberOfObjects(); i++)
 	{
 		auto jsonObject = JsonValue::Object();
+		
+		const auto& obj = world.GetObject(i);
 
-		jsonObject[u8"modelFilePath"] = world.GetObject(i).GetModelFilePath();
+		jsonObject[u8"id"] = obj.GetId();
+		jsonObject[u8"modelFilePath"] = obj.GetModelFilePath();
 
 		objects.Push(Move(jsonObject));
 	}

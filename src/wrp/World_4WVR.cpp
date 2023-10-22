@@ -26,6 +26,11 @@
 using namespace StdXX;
 
 //Public Object_4WVR methods
+uint32 Object_4WVR::GetId() const
+{
+	return this->id;
+}
+
 String Object_4WVR::GetModelFilePath() const
 {
 	return this->p3dFileName;
