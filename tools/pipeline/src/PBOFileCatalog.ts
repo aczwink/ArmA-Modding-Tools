@@ -18,6 +18,7 @@
 import fs from "fs";
 import path from "path";
 import { Dictionary, TimeUtil } from "acts-util-core";
+import { Lock } from "acts-util-node";
 import { CallLocalBin, EnsureDirectoryExists, Exec } from "./Helpers";
 import { CaseInsensitiveCacheNode } from "./CaseInsensitiveCacheNode";
 
@@ -40,6 +41,7 @@ export class PBOFileCatalog
     {
         this.pbos = {};
         this.pboCasing = {};
+        this.pboLock = new Lock;
     }
 
     //Public methods
@@ -125,6 +127,7 @@ export class PBOFileCatalog
     //Private state
     private pbos: Dictionary<PBOInfo>;
     private pboCasing: Dictionary<PBOCasingInfo>;
+    private pboLock: Lock;
 
     //Private methods
     private async EnsurePBOFileIsExtracted(pboInfo: PBOInfo)
@@ -135,11 +138,12 @@ export class PBOFileCatalog
             parts.Remove(parts.length - 1);
         const extractedArchivePath = parts.join(".");
 
-
+        //const releaser = await this.pboLock.Lock();
         if(!fs.existsSync(extractedArchivePath))
         {
             await this.ExtractPBOFromArchive(pboInfo);
         }
+        //releaser.Release();
 
         return extractedArchivePath;
     }
@@ -165,6 +169,7 @@ export class PBOFileCatalog
         switch(path.extname(pboInfo.archiveFilePath).substring(1))
         {
             case "7z":
+            case "cab":
                 await Exec(["7z", "x", "-aos", "-i!" + pboInfo.pboPath, pboInfo.archiveFilePath], this.archivesTempPath);
                 break;
             case "exe":
