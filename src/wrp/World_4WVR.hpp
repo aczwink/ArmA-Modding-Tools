@@ -37,6 +37,7 @@ public:
 	//Methods
 	uint32 GetId() const override;
 	StdXX::String GetModelFilePath() const override;
+	void SetId(uint32 id) override;
 	void SetModelFilePath(const StdXX::String &modelFilePath) override;
 };
 
