@@ -29,6 +29,7 @@ interface FileMetaData
     marked: boolean;
     sourcePath: string;
     newName?: string;
+    patchData?: any;
 }
 
 export class GameFileCatalog
@@ -99,6 +100,11 @@ export class GameFileCatalog
         }
     }
 
+    public SetPatchData(gamePath: string, patchData: any)
+    {
+        this.files[gamePath]!.patchData = patchData;
+    }
+
     //Private state
     private files: Dictionary<FileMetaData>;
     private extCounters: Dictionary<number>;
@@ -113,12 +119,13 @@ export class GameFileCatalog
             case "paa":
             case "pac":
             case "rtm":
+            case "wss":
                 return new Set();
             case "p3d":
                 const data = await CallLocalBin("p3dEdit", [sourcePath, "json"]);
                 const lods = JSON.parse(data).lods as P3DLod[];
 
-                return lods.Values().Map(x => x.polygons.Values()).Flatten().Map(x => x.texturePath.ReplaceAll("\\", "/")).Filter(x => x.length > 0).ToSet();
+                return lods.Values().Map(x => x.faces.Values()).Flatten().Map(x => x.texturePath.ReplaceAll("\\", "/")).Filter(x => x.length > 0).ToSet();
             case "wrp":
             {
                 const data = await CallLocalBin("wrpEdit", [sourcePath, "json"]);
@@ -207,7 +214,9 @@ export class GameFileCatalog
                 break;
                 case "wrp":
                 {
+                    const idmap = (metadata.patchData === undefined) ? {} : (metadata.patchData.Values().ToDictionary( (x:any) => x.id, (x:any) => x.mappedId));
                     const wrpEditInput = {
+                        ids: idmap,
                         models: dependencyMap.Values().ToDictionary(x => x.from, x => x.to)
                     };
                     const inputFilePath = path.join(this.jobsTempPath, pseudoRandomBytes(16).toString("hex") + ".json");
@@ -228,6 +237,7 @@ export class GameFileCatalog
         switch(extension)
         {
             case "ogg":
+            case "wss":
                 return "sounds";
             case "paa":
             case "pac":
