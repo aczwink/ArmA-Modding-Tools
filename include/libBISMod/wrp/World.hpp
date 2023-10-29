@@ -30,6 +30,7 @@ namespace libBISMod
 		//Methods
 		virtual uint32 GetId() const = 0;
 		virtual StdXX::String GetModelFilePath() const = 0;
+		virtual void SetId(uint32 id) = 0;
 		virtual void SetModelFilePath(const StdXX::String& modelFilePath) = 0;
 	};
 

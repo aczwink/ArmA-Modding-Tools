@@ -49,12 +49,14 @@ static void dump_json(const World& world)
 struct Replacements
 {
 	BinaryTreeMap<String, String> models;
+	BinaryTreeMap<uint32, uint32> ids;
 };
 namespace StdXX::Serialization
 {
 	void Archive(Serialization::JSONDeserializer& deserializer, Replacements& replacements)
 	{
 		deserializer & Serialization::Binding(u8"models", replacements.models);
+		deserializer & Serialization::Binding(u8"ids", replacements.ids);
 	}
 }
 static void ConvertKeysToLowercase(BinaryTreeMap<String, String>& mapping)
@@ -85,6 +87,12 @@ static void replace_resources(World& world, const FileSystem::Path& path)
 		if(it != replacements.models.end())
 		{
 			obj.SetModelFilePath(it.operator*().value);
+		}
+
+		auto it2 = replacements.ids.Find(obj.GetId());
+		if(it2 != replacements.ids.end())
+		{
+			obj.SetId(it2->value);
 		}
 	}
 

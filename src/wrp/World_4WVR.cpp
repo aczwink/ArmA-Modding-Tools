@@ -36,6 +36,11 @@ String Object_4WVR::GetModelFilePath() const
 	return this->p3dFileName;
 }
 
+void Object_4WVR::SetId(uint32 id)
+{
+	this->id = id;
+}
+
 void Object_4WVR::SetModelFilePath(const String& modelFilePath)
 {
 	this->p3dFileName = modelFilePath;
