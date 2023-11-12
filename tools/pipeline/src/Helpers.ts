@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
+import { Dictionary } from "acts-util-core";
 import { exec } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -61,6 +62,8 @@ export function Exec(command: string[], workingDirectory?: string, env?: NodeJS.
     {
         return arg
             .ReplaceAll("\\", "\\\\")
+            .ReplaceAll("(", "\\(")
+            .ReplaceAll(")", "\\)")
             .ReplaceAll(" ", "\\ ");
     }
 
@@ -77,6 +80,13 @@ export function Exec(command: string[], workingDirectory?: string, env?: NodeJS.
                 resolve(stdout);
         });
     });
+}
+
+export function IntegrityCheck(sourceFilePath: string, md5Hashes: Dictionary<string>)
+{
+    const fileName = path.basename(sourceFilePath);
+    if(!(fileName in md5Hashes))
+        throw new Error("Missing MD5 value for: " + sourceFilePath);
 }
 
 export async function IsNewer(sourcePath: string, targetPath: string)

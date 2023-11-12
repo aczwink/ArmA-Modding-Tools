@@ -16,6 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
+import { Dictionary } from "acts-util-core";
+
 interface DtaExtStepFileEntry
 {
     sourceFileName: string;
@@ -126,5 +128,6 @@ export type PipelineStep = BuildDtaExtStep | CompileConfigStep | CopyFilesStep |
 
 export interface PipelineDefinition
 {
+    source_integrity: Dictionary<string>;
     steps: PipelineStep[];
 }
