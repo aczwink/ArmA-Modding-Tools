@@ -11,6 +11,9 @@ set(SOURCE_FILES
 	${CMAKE_CURRENT_SOURCE_DIR}/libBISMod/p3d/P3DLod.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/libBISMod/p3d/P3DModelInfo.hpp
 
+	#paa
+	${CMAKE_CURRENT_SOURCE_DIR}/libBISMod/paa/ImagePyramid.hpp
+
 	#raP
 	${CMAKE_CURRENT_SOURCE_DIR}/libBISMod/raP/Definitions.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/libBISMod/raP/raP.hpp
