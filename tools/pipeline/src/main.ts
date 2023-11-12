@@ -21,7 +21,7 @@ import fs from "fs";
 import { glob } from "glob";
 import path from "path";
 import YAML from 'yaml'
-import { BuildDtaExtStep, CompileConfigStep, CopyFilesStep, ImportFilesStep, PackArchiveStep, PipelineDefinition, PipelineStep, RepackArchiveStep } from "./PipelineDefinition";
+import { BuildDtaExtStep, CompileConfigStep, CopyFilesStep, ImportFilesStep, IncludePipelineStepsStep, PackArchiveStep, PipelineDefinition, PipelineStep, RepackArchiveStep } from "./PipelineDefinition";
 import { PBOFileCatalog } from "./PBOFileCatalog";
 import { GameFileCatalog } from "./GameFileCatalog";
 import { CallLocalBin, DeleteIfExisting, EnsureDirectoryExists, Exec, IsNewer, __SetBinDir } from "./Helpers";
@@ -32,6 +32,7 @@ interface EnvironmentConfig
 {
     archivesPath: string;
     pbosTempPath: string;
+    pipelineDirPath: string;
     tempPath: string;
     vars: dotenv.DotenvParseOutput
 }
@@ -60,6 +61,10 @@ async function RunBuildDtaExtJob(step: BuildDtaExtStep, env: EnvironmentConfig)
                 return "Launcher cal.";
             case "launcherWeight":
                 return "Launcher weight";
+            case "lengthClosed":
+                return "Length (Closed)";
+            case "lengthExtended":
+                return "Length (Extended)";
             case "maxRange":
                 return "Max. range";
             case "muzzleVelocity":
@@ -303,6 +308,9 @@ async function RunImportFilesJob(step: ImportFilesStep, env: EnvironmentConfig)
 
                     const sourcePath = await pboCatalog.ProvideFile(sourceGamePath);
                     await fileCatalog.MarkForImport(sourceGamePath, sourcePath!, targetName);
+
+                    if( (typeof file !== "string") && (file.patch !== undefined) )
+                        fileCatalog.SetPatchData(sourceGamePath, file.patch);
                 }
             }
             break;
@@ -322,6 +330,18 @@ async function RunImportFilesJob(step: ImportFilesStep, env: EnvironmentConfig)
     await fileCatalog.PackArchives(path.join(targetPath, "Dta"));
 
     await pboCatalog.UnmountAll();
+}
+
+async function RunIncludePipelineStepsJob(step: IncludePipelineStepsStep, env: EnvironmentConfig)
+{
+    const pipelinePath = path.join(env.pipelineDirPath, step.name);
+    const pipelineCode = await fs.promises.readFile(pipelinePath, "utf-8");
+    const pipelineDef = YAML.parse(pipelineCode) as PipelineDefinition;
+
+    for (const step of pipelineDef.steps)
+    {
+        await RunStep(step, env);
+    }
 }
 
 async function RunPackArchiveJob(step: PackArchiveStep, env: dotenv.DotenvParseOutput)
@@ -398,6 +418,9 @@ async function RunStep(step: PipelineStep, env: EnvironmentConfig)
         case "ImportFiles":
             await RunImportFilesJob(step, env);
             break;
+        case "IncludePipelineSteps":
+            await RunIncludePipelineStepsJob(step, env);
+            break;
         case "PackArchive":
             await RunPackArchiveJob(step, env.vars);
             break;
@@ -455,6 +478,7 @@ async function LoadAndRunPipeline()
     const tempPath = env["temp"];
     const envConfig: EnvironmentConfig = {
         archivesPath: path.join(tempPath, "archives"),
+        pipelineDirPath: path.dirname(pipelinePath),
         pbosTempPath: path.join(tempPath, "pbos"),
         tempPath: tempPath,
         vars: env,

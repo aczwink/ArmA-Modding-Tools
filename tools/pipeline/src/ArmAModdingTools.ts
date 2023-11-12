@@ -16,12 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-interface Polygon
+interface Face
 {
     texturePath: string;
 }
 
 export interface P3DLod
 {
-    polygons: Polygon[];
+    faces: Face[];
 }

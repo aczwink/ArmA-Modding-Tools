@@ -61,7 +61,7 @@ interface Create7zArchiveStep
     type: "Create7zArchive";
 }
 
-type ImportFilesFileDefinition = string | { sourceFileName: string; targetName: string; };
+type ImportFilesFileDefinition = string | { sourceFileName: string; targetName: string; patch?: any };
 
 interface ImportFilesArchiveSourceDefinition
 {
@@ -86,6 +86,12 @@ export interface ImportFilesStep
     ignore: string[];
     source: string;
     sources: ImportFilesSourceDefinition[];
+}
+
+export interface IncludePipelineStepsStep
+{
+    type: "IncludePipelineSteps";
+    name: string;
 }
 
 export interface PackArchiveStep
@@ -116,7 +122,7 @@ export interface RepackArchiveStep
     };
 }
 
-export type PipelineStep = BuildDtaExtStep | CompileConfigStep | CopyFilesStep | Create7zArchiveStep | ImportFilesStep | PackArchiveStep | RepackArchiveStep;
+export type PipelineStep = BuildDtaExtStep | CompileConfigStep | CopyFilesStep | Create7zArchiveStep | ImportFilesStep | IncludePipelineStepsStep | PackArchiveStep | RepackArchiveStep;
 
 export interface PipelineDefinition
 {

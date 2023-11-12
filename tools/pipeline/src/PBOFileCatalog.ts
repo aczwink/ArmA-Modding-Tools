@@ -170,6 +170,7 @@ export class PBOFileCatalog
         {
             case "7z":
             case "cab":
+            case "zip":
                 await Exec(["7z", "x", "-aos", "-i!" + pboInfo.pboPath, pboInfo.archiveFilePath], this.archivesTempPath);
                 break;
             case "exe":
