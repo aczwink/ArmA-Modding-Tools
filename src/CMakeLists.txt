@@ -10,6 +10,9 @@ set(SOURCE_FILES
 	${CMAKE_CURRENT_SOURCE_DIR}/p3d/ODOL7ModelInfo.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/p3d/P3D.cpp
 
+	#paa
+	${CMAKE_CURRENT_SOURCE_DIR}/paa/ImagePyramid.cpp
+
 	#wrp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/ContextAwareCharStreamReader.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/ParseRaP.cpp

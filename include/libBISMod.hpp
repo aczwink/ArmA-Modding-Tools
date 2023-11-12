@@ -20,6 +20,9 @@
 //p3d
 #include <libBISMod/p3d/P3D.hpp>
 
+//paa
+#include <libBISMod/paa/ImagePyramid.hpp>
+
 //raP
 #include <libBISMod/raP/raP.hpp>
 
