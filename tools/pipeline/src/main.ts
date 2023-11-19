@@ -219,6 +219,8 @@ height="70"></h3>
         }
     }
 
+    await pboCatalog.UnmountAll();
+
     //pack pbo
     const targetPath = path.join(env.vars["target"], "Dta", "DTAEXT.PBO");
     await DeleteIfExisting(targetPath);
