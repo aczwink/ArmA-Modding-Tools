@@ -399,7 +399,7 @@ async function RunRepackArchiveJob(step: RepackArchiveStep, env: EnvironmentConf
             await fs.promises.copyFile(sourceFilePath, targetFilePath);
     }
 
-    const packPath = path.join(env.vars["target"], "AddOns", step.targetPboName + ".pbo");
+    const packPath = path.join(env.vars["target"], step.targetPboName + ".pbo");
 
     if(!fs.existsSync(packPath))
     {
