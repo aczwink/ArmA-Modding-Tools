@@ -24,13 +24,14 @@ import YAML from 'yaml'
 import { BuildDtaExtStep, CompileConfigStep, CopyFilesStep, ImportFilesStep, IncludePipelineStepsStep, PackArchiveStep, PipelineDefinition, PipelineStep, RepackArchiveStep } from "./PipelineDefinition";
 import { PBOFileCatalog } from "./PBOFileCatalog";
 import { GameFileCatalog } from "./GameFileCatalog";
-import { CallLocalBin, DeleteIfExisting, EnsureDirectoryExists, Exec, IsNewer, __SetBinDir } from "./Helpers";
+import { CallLocalBin, DeleteIfExisting, EnsureDirectoryExists, Exec, IntegrityCheck, IsNewer, __SetBinDir } from "./Helpers";
 import { XMLParser } from "fast-xml-parser";
 import { Dictionary } from "acts-util-core";
 
 interface EnvironmentConfig
 {
     archivesPath: string;
+    md5Hashes: Dictionary<string>;
     pbosTempPath: string;
     pipelineDirPath: string;
     tempPath: string;
@@ -183,7 +184,11 @@ height="70"></h3>
         const imgSourcePath = env.vars[imgSrc.sourceLocation];
 
         for (const pbo of imgSrc.pbos)
-            pboCatalog.AddPBO(path.join(imgSourcePath, imgSrc.name), pbo);
+        {
+            const sourceFilePath = path.join(imgSourcePath, imgSrc.name);
+            IntegrityCheck(sourceFilePath, env.md5Hashes);
+            pboCatalog.AddPBO(sourceFilePath, pbo);
+        }
 
         for (const fileEntry of imgSrc.files)
         {
@@ -213,6 +218,8 @@ height="70"></h3>
             await fs.promises.chmod(targetFilePath, 0o664);
         }
     }
+
+    await pboCatalog.UnmountAll();
 
     //pack pbo
     const targetPath = path.join(env.vars["target"], "Dta", "DTAEXT.PBO");
@@ -289,7 +296,11 @@ async function RunImportFilesJob(step: ImportFilesStep, env: EnvironmentConfig)
             case "Archive":
             {
                 for (const pbo of source.pbos)
-                    pboCatalog.AddPBO(path.join(sourcePath, source.name), pbo);
+                {
+                    const sourceFilePath = path.join(sourcePath, source.name);
+                    IntegrityCheck(sourceFilePath, env.md5Hashes);
+                    pboCatalog.AddPBO(sourceFilePath, pbo);
+                }
             }
             break;
         }
@@ -388,7 +399,7 @@ async function RunRepackArchiveJob(step: RepackArchiveStep, env: EnvironmentConf
             await fs.promises.copyFile(sourceFilePath, targetFilePath);
     }
 
-    const packPath = path.join(env.vars["target"], "AddOns", step.targetPboName + ".pbo");
+    const packPath = path.join(env.vars["target"], step.targetPboName + ".pbo");
 
     if(!fs.existsSync(packPath))
     {
@@ -478,6 +489,7 @@ async function LoadAndRunPipeline()
     const tempPath = env["temp"];
     const envConfig: EnvironmentConfig = {
         archivesPath: path.join(tempPath, "archives"),
+        md5Hashes: {},
         pipelineDirPath: path.dirname(pipelinePath),
         pbosTempPath: path.join(tempPath, "pbos"),
         tempPath: tempPath,
@@ -491,6 +503,8 @@ async function LoadAndRunPipeline()
     //load pipeline
     const pipelineCode = await fs.promises.readFile(pipelinePath, "utf-8");
     const pipelineDef = YAML.parse(pipelineCode) as PipelineDefinition;
+
+    envConfig.md5Hashes = pipelineDef.source_integrity;
 
     const totalStart = Date.now();
 

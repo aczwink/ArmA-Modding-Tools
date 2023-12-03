@@ -112,7 +112,7 @@ export class GameFileCatalog
     //Private methods
     private async AnalyzeDependencies(sourcePath: string): Promise<Set<string>>
     {
-        const extension = path.extname(sourcePath).substring(1);
+        const extension = path.extname(sourcePath).substring(1).toLowerCase();
         switch(extension)
         {
             case "ogg":
@@ -234,7 +234,7 @@ export class GameFileCatalog
 
     private MapExtensionToFolderName(extension: string)
     {
-        switch(extension)
+        switch(extension.toLowerCase())
         {
             case "ogg":
             case "wss":
