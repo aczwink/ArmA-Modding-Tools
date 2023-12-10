@@ -110,7 +110,13 @@ uint32 ODOL7Lod::GetNumberOfPolygons() const
 void ODOL7Lod::GetPolygon(uint32 index, P3DPolygon &polygon) const
 {
 	uint16 textureIndex = this->lodData.faces.pPolygons[index].textureIndex;
-	polygon.texturePath = this->lodData.textures[textureIndex];
+	if(textureIndex == Unsigned<uint16>::Max())
+	{
+		//if -1 there is no texture
+		polygon.texturePath = {};
+	}
+	else
+		polygon.texturePath = this->lodData.textures[textureIndex];
 }
 
 LodType ODOL7Lod::GetType() const
