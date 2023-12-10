@@ -21,6 +21,7 @@ import { Dictionary, TimeUtil } from "acts-util-core";
 import { Lock } from "acts-util-node";
 import { CallLocalBin, EnsureDirectoryExists, Exec } from "./Helpers";
 import { CaseInsensitiveCacheNode } from "./CaseInsensitiveCacheNode";
+import { ArchiveFileProvider } from "./ArchiveFileProvider";
 
 interface PBOInfo
 {
@@ -37,7 +38,7 @@ interface PBOCasingInfo
 
 export class PBOFileCatalog
 {
-    constructor(private archivesTempPath: string, private pbosTempPath: string, private ignoreReportingForPBOs: string[])
+    constructor(private archiveFileProvider: ArchiveFileProvider, private pbosTempPath: string, private ignoreReportingForPBOs: string[])
     {
         this.pbos = {};
         this.pboCasing = {};
@@ -119,7 +120,7 @@ export class PBOFileCatalog
                     continue;
                 
                 const mountedPBOPath = this.GetMountedPBOPath(pboName);
-                await Exec(["fusermount", "-u", mountedPBOPath]);
+                await this.UnmountPBOWithRetries(mountedPBOPath);
             }
         }
     }
@@ -132,19 +133,7 @@ export class PBOFileCatalog
     //Private methods
     private async EnsurePBOFileIsExtracted(pboInfo: PBOInfo)
     {
-        const extractedArchivePathCompressed = path.join(this.archivesTempPath, pboInfo.pboPath);
-        const parts = extractedArchivePathCompressed.split(".");
-        while(parts[parts.length - 1].toLowerCase() !== "pbo")
-            parts.Remove(parts.length - 1);
-        const extractedArchivePath = parts.join(".");
-
-        //const releaser = await this.pboLock.Lock();
-        if(!fs.existsSync(extractedArchivePath))
-        {
-            await this.ExtractPBOFromArchive(pboInfo);
-        }
-        //releaser.Release();
-
+        const extractedArchivePath = await this.archiveFileProvider.ProvideFile(pboInfo.archiveFilePath, pboInfo.pboPath);
         return extractedArchivePath;
     }
 
@@ -154,6 +143,13 @@ export class PBOFileCatalog
         if(pboInfo.isMounted)
             return;
 
+        const releaser = await this.pboLock.Lock();
+        if(pboInfo.isMounted)
+        {
+            releaser.Release();
+            return;
+        }
+
         await EnsureDirectoryExists(mountPath);
 
         CallLocalBin("ArC", ["mount", extractedPBOPath, mountPath]);
@@ -162,42 +158,8 @@ export class PBOFileCatalog
         this.pboCasing[pboName.toLowerCase()]!.node = await CaseInsensitiveCacheNode.Build(mountPath);
 
         pboInfo.isMounted = true;
-    }
 
-    private async ExtractPBOFromArchive(pboInfo: PBOInfo)
-    {
-        switch(path.extname(pboInfo.archiveFilePath).substring(1))
-        {
-            case "7z":
-            case "cab":
-            case "zip":
-                await Exec(["7z", "x", "-aos", "-i!" + pboInfo.pboPath, pboInfo.archiveFilePath], this.archivesTempPath);
-                break;
-            case "exe":
-            {
-                try
-                {
-                    await Exec(["7z", "x", "-aos", "-i!" + pboInfo.pboPath, pboInfo.archiveFilePath], this.archivesTempPath);
-                }
-                catch(e: any)
-                {
-                    if(e.code === 2)
-                    {
-                        await Exec(["unrar", "x", "-o+", pboInfo.archiveFilePath, pboInfo.pboPath], this.archivesTempPath);
-                    }
-                    else
-                        throw e;
-                }
-            }
-            break;
-            case "rar":
-                await Exec(["unrar", "x", "-o+", pboInfo.archiveFilePath, pboInfo.pboPath], this.archivesTempPath);
-                break;
-            default:
-                throw new Error("ExtractPBOFromArchive: " + path.extname(pboInfo.archiveFilePath));
-        }
-
-        await this.UncompressPBO(pboInfo.pboPath);
+        releaser.Release();
     }
 
     private GamePathToFileSystemPath(gamePath: string)
@@ -210,18 +172,30 @@ export class PBOFileCatalog
         return path.join(this.pbosTempPath, pboName);
     }
 
-    private async UncompressPBO(compressedFilePath: string)
+    private async UnmountPBO(mountedPBOPath: string)
     {
-        const extName = path.extname(compressedFilePath);
-        switch(extName.toLowerCase())
+        try
         {
-            case ".pbo":
-                break;
-            case ".xz":
-                await Exec(["xz", "-d", "-S", extName, compressedFilePath], this.archivesTempPath);
-                break;
-            default:
-                throw new Error("Method not implemented: " + extName);
+            await Exec(["fusermount", "-u", mountedPBOPath]);
         }
+        catch(e: any)
+        {
+            if(e.code === 1)
+                return false;
+            throw e;
+        }
+        return true;
+    }
+
+    private async UnmountPBOWithRetries(mountedPBOPath: string)
+    {
+        for(let i = 0; i < 5; i++)
+        {
+            const result = await this.UnmountPBO(mountedPBOPath);
+            if(result)
+                return;
+            await TimeUtil.Delay(1000);
+        }
+        throw new Error("TODO: COULD NOT UNMOUNT");
     }
 }

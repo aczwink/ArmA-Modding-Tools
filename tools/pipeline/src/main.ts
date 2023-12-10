@@ -21,12 +21,13 @@ import fs from "fs";
 import { glob } from "glob";
 import path from "path";
 import YAML from 'yaml'
-import { BuildDtaExtStep, CompileConfigStep, CopyFilesStep, ImportFilesStep, IncludePipelineStepsStep, PackArchiveStep, PipelineDefinition, PipelineStep, RepackArchiveStep } from "./PipelineDefinition";
+import { BuildDtaExtStep, CompileConfigStep, CopyFilesStep, ExtractPBOStep, ImportFilesStep, IncludePipelineStepsStep, PackArchiveStep, PipelineDefinition, PipelineStep, RepackArchiveStep } from "./PipelineDefinition";
 import { PBOFileCatalog } from "./PBOFileCatalog";
 import { GameFileCatalog } from "./GameFileCatalog";
 import { CallLocalBin, DeleteIfExisting, EnsureDirectoryExists, Exec, IntegrityCheck, IsNewer, __SetBinDir } from "./Helpers";
 import { XMLParser } from "fast-xml-parser";
 import { Dictionary } from "acts-util-core";
+import { ArchiveFileProvider } from "./ArchiveFileProvider";
 
 interface EnvironmentConfig
 {
@@ -177,7 +178,8 @@ height="70"></h3>
     }
 
     //images
-    const pboCatalog = new PBOFileCatalog(env.archivesPath, env.pbosTempPath, []);
+    const archiveFileProvider = new ArchiveFileProvider(env.archivesPath);
+    const pboCatalog = new PBOFileCatalog(archiveFileProvider, env.pbosTempPath, []);
 
     for (const imgSrc of step.imageSources)
     {
@@ -275,9 +277,29 @@ async function RunCreate7zArchiveJob(env: dotenv.DotenvParseOutput)
     await Exec(["7z", "a", "-t7z", "-mmt=on", "-mx=" + compressionStrength, targetPath + ".7z", targetPath + "/*"]);
 }
 
+async function RunExtractPBOJob(step: ExtractPBOStep, env: EnvironmentConfig)
+{
+    const sourcePath = env.vars[step.source.sourceLocation];
+    const sourceFilePath = path.join(sourcePath, step.source.name);
+
+    IntegrityCheck(sourceFilePath, env.md5Hashes);
+
+    const targetName = path.basename(step.source.pbo);
+    const targetPath = path.join(env.vars["target"], step.targetFolder, targetName);
+
+    const isNewer = await IsNewer(sourceFilePath, targetPath);
+    if(isNewer)
+    {
+        const archiveFileProvider = new ArchiveFileProvider(env.archivesPath);
+        const pboPath = await archiveFileProvider.ProvideFile(sourceFilePath, step.source.pbo);
+
+        await DeleteIfExisting(targetPath);
+        await fs.promises.copyFile(pboPath, targetPath);
+    }
+}
+
 async function RunImportFilesJob(step: ImportFilesStep, env: EnvironmentConfig)
 {
-    const sourcePath = env.vars[step.source];
     const tempPath = env.tempPath;
     const targetPath = env.vars["target"];
 
@@ -287,7 +309,8 @@ async function RunImportFilesJob(step: ImportFilesStep, env: EnvironmentConfig)
     const packTempPath = path.join(tempPath, "pack");
     await EnsureDirectoryExists(packTempPath);
 
-    const pboCatalog = new PBOFileCatalog(env.archivesPath, env.pbosTempPath, step.ignore);
+    const archiveFileProvider = new ArchiveFileProvider(env.archivesPath);
+    const pboCatalog = new PBOFileCatalog(archiveFileProvider, env.pbosTempPath, step.ignore);
     const fileCatalog = new GameFileCatalog(jobsTempPath, packTempPath, pboCatalog);
     for (const source of step.sources)
     {
@@ -297,6 +320,7 @@ async function RunImportFilesJob(step: ImportFilesStep, env: EnvironmentConfig)
             {
                 for (const pbo of source.pbos)
                 {
+                    const sourcePath = env.vars[source.sourceLocation];
                     const sourceFilePath = path.join(sourcePath, source.name);
                     IntegrityCheck(sourceFilePath, env.md5Hashes);
                     pboCatalog.AddPBO(sourceFilePath, pbo);
@@ -312,7 +336,8 @@ async function RunImportFilesJob(step: ImportFilesStep, env: EnvironmentConfig)
         {
             case "Archive":
             {
-                for (const file of source.files)
+                const files = Array.isArray(source.files) ? source.files : [source.files];
+                for (const file of files)
                 {
                     const sourceGamePath = (typeof file === "string") ? file : file.sourceFileName;
                     const targetName = (typeof file === "string") ? undefined : file.targetName;
@@ -327,7 +352,7 @@ async function RunImportFilesJob(step: ImportFilesStep, env: EnvironmentConfig)
             break;
             case "FileSystem":
             {
-                const sourcePath = env.vars[source.source];
+                const sourcePath = env.vars[source.sourceLocation];
                 for (const file of source.files)
                 {
                     await fileCatalog.MarkForImport(file, path.join(sourcePath, file));
@@ -371,12 +396,13 @@ async function RunPackArchiveJob(step: PackArchiveStep, env: dotenv.DotenvParseO
 
 async function RunRepackArchiveJob(step: RepackArchiveStep, env: EnvironmentConfig)
 {
-    const sourcePath = env.vars[step.sourceLocation];
+    const sourcePath = env.vars[step.source.sourceLocation];
 
     const repackPath = path.join(env.tempPath, "repack");
     await EnsureDirectoryExists(repackPath);
 
-    const pboCatalog = new PBOFileCatalog(env.archivesPath, env.pbosTempPath, []);
+    const archiveFileProvider = new ArchiveFileProvider(env.archivesPath);
+    const pboCatalog = new PBOFileCatalog(archiveFileProvider, env.pbosTempPath, []);
     const pboPath = await pboCatalog.MountPBO(path.join(sourcePath, step.source.name), step.source.pbo);
 
     const targetPath = path.join(repackPath, step.targetPboName);
@@ -387,16 +413,32 @@ async function RunRepackArchiveJob(step: RepackArchiveStep, env: EnvironmentConf
 
     for (const entry of step.include)
     {
-        const sourceFilePath = path.join(env.vars[entry.source], entry.path);
-        const targetFilePath = path.join(targetPath, path.basename(entry.path));
-
-        if(path.extname(sourceFilePath) === ".cpp")
+        const files = Array.isArray(entry.files) ? entry.files : [entry.files];
+        for (const filePath of files)
         {
-            const parsed = path.parse(targetFilePath);
-            await CallLocalBin("raPEdit", [sourceFilePath, ">", path.join(parsed.dir, parsed.name + ".bin")]);
+            let sourceFilePath;
+            switch(entry.type)
+            {
+                case "Archive":
+                    throw new Error("NOT IMPLEMENTED");
+                case "FileSystem":
+                    sourceFilePath = path.join(env.vars[entry.sourceLocation], filePath);
+                    break;
+                case "FlatArchive":
+                    sourceFilePath = await archiveFileProvider.ProvideFile(path.join(env.vars[entry.sourceLocation], entry.name), filePath);
+                    break;
+            }
+
+            const targetFilePath = path.join(targetPath, path.basename(filePath));
+
+            if(path.extname(sourceFilePath) === ".cpp")
+            {
+                const parsed = path.parse(targetFilePath);
+                await CallLocalBin("raPEdit", [sourceFilePath, ">", path.join(parsed.dir, parsed.name + ".bin")]);
+            }
+            else
+                await fs.promises.copyFile(sourceFilePath, targetFilePath);   
         }
-        else
-            await fs.promises.copyFile(sourceFilePath, targetFilePath);
     }
 
     const packPath = path.join(env.vars["target"], step.targetPboName + ".pbo");
@@ -425,6 +467,9 @@ async function RunStep(step: PipelineStep, env: EnvironmentConfig)
             break;
         case "Create7zArchive":
             await RunCreate7zArchiveJob(env.vars);
+            break;
+        case "ExtractPBO":
+            await RunExtractPBOJob(step, env);
             break;
         case "ImportFiles":
             await RunImportFilesJob(step, env);
