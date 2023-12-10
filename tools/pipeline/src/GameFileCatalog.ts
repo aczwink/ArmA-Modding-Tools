@@ -119,6 +119,7 @@ export class GameFileCatalog
             case "paa":
             case "pac":
             case "rtm":
+            case "wav":
             case "wss":
                 return new Set();
             case "p3d":
@@ -237,6 +238,7 @@ export class GameFileCatalog
         switch(extension.toLowerCase())
         {
             case "ogg":
+            case "wav":
             case "wss":
                 return "sounds";
             case "paa":

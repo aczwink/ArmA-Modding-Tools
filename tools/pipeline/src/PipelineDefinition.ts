@@ -18,6 +18,40 @@
 
 import { Dictionary } from "acts-util-core";
 
+interface PBOLocation
+{
+    type: "Archive";
+    sourceLocation: string;
+    name: string;
+    pbo: string;
+}
+
+interface ArchiveWithPBOsFileSource
+{
+    type: "Archive";
+    sourceLocation: string;
+    name: string;
+    pbos: string[];
+}
+
+interface ArchiveWithoutPBOsFileSource
+{
+    type: "FlatArchive";
+    sourceLocation: string;
+    name: string;
+}
+
+interface FileSystemFileSource
+{
+    type: "FileSystem";
+    sourceLocation: string;
+    files: string | string[];
+}
+
+type FileSource = ArchiveWithPBOsFileSource | ArchiveWithoutPBOsFileSource | FileSystemFileSource;
+type FileSourceWithFiles<T> = FileSource & { files: T | T[]; };
+
+
 interface DtaExtStepFileEntry
 {
     sourceFileName: string;
@@ -34,13 +68,7 @@ export interface BuildDtaExtStep
         filePath: string;
         regExp: string;
     };
-    imageSources: {
-        type: "Archive";
-        sourceLocation: string;
-        name: string;
-        pbos: string[];
-        files: DtaExtStepFileEntry[];
-    }[];
+    imageSources: (ArchiveWithPBOsFileSource & { files: DtaExtStepFileEntry[]; })[];
 }
 
 export interface CompileConfigStep
@@ -63,31 +91,20 @@ interface Create7zArchiveStep
     type: "Create7zArchive";
 }
 
+export interface ExtractPBOStep
+{
+    type: "ExtractPBO";
+    source: PBOLocation;
+    targetFolder: string;
+}
+
 type ImportFilesFileDefinition = string | { sourceFileName: string; targetName: string; patch?: any };
-
-interface ImportFilesArchiveSourceDefinition
-{
-    type: "Archive";
-    name: string;
-    pbos: string[];
-    files: ImportFilesFileDefinition[];
-}
-
-interface ImportFilesFileSystemSourceDefinition
-{
-    type: "FileSystem";
-    source: string;
-    files: string[];
-}
-
-type ImportFilesSourceDefinition = ImportFilesArchiveSourceDefinition | ImportFilesFileSystemSourceDefinition;
 
 export interface ImportFilesStep
 {
     type: "ImportFiles";
     ignore: string[];
-    source: string;
-    sources: ImportFilesSourceDefinition[];
+    sources: FileSourceWithFiles<ImportFilesFileDefinition>[];
 }
 
 export interface IncludePipelineStepsStep
@@ -108,23 +125,13 @@ export interface PackArchiveStep
 export interface RepackArchiveStep
 {
     type: "RepackArchive";
-    sourceLocation: string;
+    source: PBOLocation;
     exclude: string[];
+    include: FileSourceWithFiles<string>[];
     targetPboName: string;
-
-    include: {
-        source: string;
-        path: string;
-    }[];
-
-    source: {
-        type: "Archive";
-        name: string;
-        pbo: string;
-    };
 }
 
-export type PipelineStep = BuildDtaExtStep | CompileConfigStep | CopyFilesStep | Create7zArchiveStep | ImportFilesStep | IncludePipelineStepsStep | PackArchiveStep | RepackArchiveStep;
+export type PipelineStep = BuildDtaExtStep | CompileConfigStep | CopyFilesStep | Create7zArchiveStep | ExtractPBOStep | ImportFilesStep | IncludePipelineStepsStep | PackArchiveStep | RepackArchiveStep;
 
 export interface PipelineDefinition
 {
