@@ -375,7 +375,7 @@ String RapPreprocessor::ReadDefinitionValue(uint32& codePoint)
 		codePoint = this->ReadNextCodePointFromCurrentStream();
 	}
 
-	return value;
+	return value.Trim(); //trailing whitespaces are not part of the define. That's important when using the # operator
 }
 
 uint32 RapPreprocessor::ReadNextCodePointFromCurrentStream()
