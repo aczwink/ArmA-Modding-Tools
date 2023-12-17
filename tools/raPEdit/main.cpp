@@ -62,7 +62,7 @@ static void inline_enums(RapNode& rapNode, const RapTree& tree)
 
 static void inline_enums(RapTree& tree)
 {
-	inline_enums(tree, tree);
+	inline_enums(*tree.rootNode, tree);
 	tree.ClearEnums();
 }
 
@@ -90,9 +90,8 @@ static void ParseFeedback(const RapParseFeedback& feedback, const String& contex
 
 static void bin2cpp(const Path& input)
 {
-	RapTree tree;
-	ReadRapTreeFromFile(input, &tree);
-	SaveRawRapTreeToStream(stdOut, tree);
+	UniquePointer<RapTree> tree = ReadRapTreeFromFile(input);
+	SaveRawRapTreeToStream(stdOut, *tree);
 
 	/*
 	 * else
@@ -106,6 +105,7 @@ static void bin2cpp(const Path& input)
 static void cpp2bin(const Path& input, bool inlineEnums)
 {
 	UniquePointer<RapTree> tree = RapParseFile(input, ParseFeedback);
+	ValidateRapTree(*tree);
 
 	if(inlineEnums)
 		inline_enums(*tree);

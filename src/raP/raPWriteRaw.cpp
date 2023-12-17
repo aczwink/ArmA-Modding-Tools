@@ -169,9 +169,9 @@ static void WriteRawRapPacket(const RapNode& node, uint16 nTabs, TextWriter& tex
 	{
 		case RAP_PACKETTYPE_CLASS:
 			textWriter << "class " << node.GetName();
-			if(!node.GetInheritedClassName().IsEmpty())
+			if(!node.InheritedClassName().IsEmpty())
 			{
-				textWriter << " : " << node.GetInheritedClassName();
+				textWriter << " : " << node.InheritedClassName();
 			}
 			textWriter << endl;
 			PUTTABS;
@@ -229,19 +229,20 @@ static void WriteRawRapPacket(const RapNode& node, uint16 nTabs, TextWriter& tex
 }
 
 //Namespace Functions
-void libBISMod::SaveRawRapTreeToStream(OutputStream &outputStream, const RapTree& rootNode)
+void libBISMod::SaveRawRapTreeToStream(OutputStream &outputStream, const RapTree& rapTree)
 {
 	TextWriter textWriter(outputStream, TextCodecType::Latin1);
 
-	if(!rootNode.EnumTable().IsEmpty())
+	if(!rapTree.EnumTable().IsEmpty())
 	{
-		WriteEnumTable(rootNode.EnumTable(), textWriter);
+		WriteEnumTable(rapTree.EnumTable(), textWriter);
 		textWriter << endl << endl;
 	}
 
+	const auto& rootNode = *rapTree.rootNode;
 	for(uint32 i = 0; i < rootNode.ChildNodes().GetNumberOfElements(); i++)
 	{
-		WriteRawRapPacket(rootNode.ChildNodes()[i], 0, textWriter);
+		WriteRawRapPacket(*rootNode.ChildNodes()[i], 0, textWriter);
 		if(i+1 != rootNode.ChildNodes().GetNumberOfElements())
 		{
 			textWriter << endl;

@@ -25,6 +25,7 @@ set(SOURCE_FILES
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/RapPreprocessor.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/raPInternal.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/raPRead.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/raP/raPValidate.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/raPWrite.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/raP/raPWriteRaw.cpp
 

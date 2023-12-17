@@ -41,7 +41,8 @@ UniquePointer<RapTree> libBISMod::RapParseFile(const Path &inputPath, const Func
 	RapParser parser(lexer, inputPath.GetName(), parseFeedback);
 	parser.Parse();
 
-	return parser.TakeRoot();
+	auto tree = parser.TakeRoot();
+	return tree;
 }
 
 void libBISMod::RapPreprocessFile(const Path& inputPath, TextWriter& textWriter)

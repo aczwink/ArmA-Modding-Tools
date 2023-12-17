@@ -24,23 +24,25 @@ void RapParser::Parse()
 {
 	while(!this->Accept(TOKEN_END))
 	{
-		this->ParseNextTopLevel();
+		auto topLevel = this->ParseNextTopLevel();
+		if(!topLevel.IsNull())
+			this->tree->rootNode->AddChild(Move(topLevel));
 	}
 }
 
 //Private methods
-void RapParser::ParseArrayLiteral(const String& identifier, RapNode& parent)
+UniquePointer<RapNode> RapParser::ParseArrayLiteral(const String& identifier)
 {
 	this->Expect(TOKEN_BRACEOPEN);
 
-	RapNode node;
-	node.SetPacketType(RAP_PACKETTYPE_ARRAY);
-	node.SetName(identifier);
+	UniquePointer<RapNode> node = new RapNode;
+	node->SetPacketType(RAP_PACKETTYPE_ARRAY);
+	node->SetName(identifier);
 
 	while(!this->Accept(TOKEN_BRACECLOSE))
 	{
 		auto value = this->ParseArrayValue();
-		node.AddArrayValue(value);
+		node->AddArrayValue(value);
 
 		if(this->Accept(TOKEN_BRACECLOSE))
 			break;
@@ -48,7 +50,7 @@ void RapParser::ParseArrayLiteral(const String& identifier, RapNode& parent)
 			this->Expect(TOKEN_COMMA);
 	}
 
-	parent.AddNode(node);
+	return node;
 }
 
 RapArrayValue RapParser::ParseArrayValue()
@@ -80,11 +82,9 @@ RapArrayValue RapParser::ParseArrayValue()
 	{
 		//TODO: fix this
 		String TODO;
-		RapNode TODO2;
-		TODO2.SetPacketType(RAP_PACKETTYPE_CLASS);
-		this->ParseArrayLiteral(TODO, TODO2);
+		auto literalNode = this->ParseArrayLiteral(TODO);
 
-		value.SetValue(Move(TODO2.GetNode(0).ArrayValue()));
+		value.SetValue(Move(literalNode->ArrayValue()));
 	}
 	else
 		throw raPParseException(u8"Illegal syntax in array literal", this->lexer.CurrentContext());
@@ -92,18 +92,18 @@ RapArrayValue RapParser::ParseArrayValue()
 	return value;
 }
 
-void RapParser::ParseClass(RapNode& parent)
+UniquePointer<RapNode> RapParser::ParseClass()
 {
 	String name = this->Expect(TOKEN_TEXT);
 
-	RapNode node;
-	node.SetPacketType(RAP_PACKETTYPE_CLASS);
-	node.SetName(name);
+	UniquePointer<RapNode> classNode = new RapNode;
+	classNode->SetPacketType(RAP_PACKETTYPE_CLASS);
+	classNode->SetName(name);
 
 	if(this->Accept(TOKEN_COLON))
 	{
 		this->Expect(TOKEN_TEXT);
-		node.SetInheritedClassName(this->lexer.GetCurrentTokenValue());
+		classNode->InheritedClassName(this->lexer.GetCurrentTokenValue());
 	}
 
 	this->Expect(TOKEN_BRACEOPEN);
@@ -113,10 +113,12 @@ void RapParser::ParseClass(RapNode& parent)
 		String tokenValue;
 		if(this->Accept(TOKEN_TEXT, tokenValue))
 		{
+			UniquePointer<RapNode> child;
 			if(tokenValue == u8"class")
-				this->ParseClass(node);
+				child = this->ParseClass();
 			else
-				this->ParseClassMemberPropertySet(tokenValue, node);
+				child = this->ParseClassMemberPropertySet(tokenValue);
+			classNode->AddChild(Move(child));
 		}
 		else if(this->Accept(TOKEN_SEMICOLON))
 		{
@@ -133,16 +135,16 @@ void RapParser::ParseClass(RapNode& parent)
 	if(!this->Accept(TOKEN_SEMICOLON))
 		this->ReportFeedback(RapParseFeedback::MissingSemicolonAtClassEnd, name);
 
-	parent.AddNode(node);
+	return classNode;
 }
 
-void RapParser::ParseClassMemberPropertySet(const String& identifier, RapNode& parent)
+UniquePointer<RapNode> RapParser::ParseClassMemberPropertySet(const String& identifier)
 {
 	if(this->Accept(TOKEN_ASSIGNMENT))
 	{
 		this->skipLineBreaks = false;
 
-		this->ParseValue(identifier, parent);
+		auto result = this->ParseValue(identifier);
 
 		if(this->Accept(TOKEN_LINEBREAK))
 			this->ReportFeedback(RapParseFeedback::MissingSemicolonAtPropertyAssignmentEnd, identifier);
@@ -150,14 +152,18 @@ void RapParser::ParseClassMemberPropertySet(const String& identifier, RapNode& p
 			this->Expect(TOKEN_SEMICOLON);
 
 		this->skipLineBreaks = true;
+
+		return result;
 	}
 	else if(this->Accept(TOKEN_ARRAY_MARKER))
 	{
 		this->Expect(TOKEN_ASSIGNMENT);
 
-		this->ParseArrayLiteral(identifier, parent);
+		auto result = this->ParseArrayLiteral(identifier);
 
 		this->Expect(TOKEN_SEMICOLON);
+
+		return result;
 	}
 	else
 		throw raPParseException(u8"Illegal syntax encountered in property value assignment to '" + identifier + u8"'", this->lexer.CurrentContext());
@@ -184,40 +190,41 @@ void RapParser::ParseEnum()
 	this->Expect(TOKEN_SEMICOLON);
 }
 
-void RapParser::ParseNextTopLevel()
+UniquePointer<RapNode> RapParser::ParseNextTopLevel()
 {
 	String tokenValue = this->Expect(TOKEN_TEXT);
 
 	if(tokenValue == u8"class")
-		this->ParseClass(*this->tree);
+		return this->ParseClass();
 	else if(tokenValue == u8"enum")
 		this->ParseEnum();
 	else
 	{
 		NOT_IMPLEMENTED_ERROR; //TODO: implement me
 	}
+
+	return nullptr;
 }
 
-void RapParser::ParseValue(const String& identifier, RapNode& parent)
+UniquePointer<RapNode> RapParser::ParseValue(const String& identifier)
 {
-	RapNode node;
-
-	node.SetPacketType(RAP_PACKETTYPE_VARIABLE);
-	node.SetName(identifier);
+	UniquePointer<RapNode> node = new RapNode;
+	node->SetPacketType(RAP_PACKETTYPE_VARIABLE);
+	node->SetName(identifier);
 
 	String tokenValue;
 	if(this->Accept(TOKEN_INT_LITERAL, tokenValue))
-		node.SetValue(tokenValue.ToInt32());
+		node->SetValue(tokenValue.ToInt32());
 	else if(this->Accept(TOKEN_FLOAT_LITERAL, tokenValue))
-		node.SetValue(Float<float32>::Parse(tokenValue));
+		node->SetValue(Float<float32>::Parse(tokenValue));
 	else if(this->Accept(TOKEN_STRING_LITERAL, tokenValue))
-		node.SetValue(tokenValue);
+		node->SetValue(tokenValue);
 	else if(this->Accept(TOKEN_TEXT, tokenValue))
 	{
 		if(!this->tree->IsEnumDefined(tokenValue))
 			this->ReportFeedback(RapParseFeedback::UnquotedString, tokenValue);
 
-		node.SetValue(tokenValue);
+		node->SetValue(tokenValue);
 	}
 	else if(this->PeekNextToken() == TOKEN_SEMICOLON)
 	{
@@ -225,7 +232,7 @@ void RapParser::ParseValue(const String& identifier, RapNode& parent)
 			this->ReportFeedback(RapParseFeedback::UnquotedString, tokenValue);
 
 		//empty string is allowed
-		node.SetValue(u8"");
+		node->SetValue(u8"");
 	}
 	else
 		throw raPParseException(u8"Illegal syntax encountered in property value assignment to '" + identifier + u8"'", this->lexer.CurrentContext());
@@ -239,10 +246,10 @@ void RapParser::ParseValue(const String& identifier, RapNode& parent)
 		while(this->Accept(TOKEN_INT_LITERAL, tokenValue2) || this->Accept(TOKEN_FLOAT_LITERAL, tokenValue2) || this->Accept(TOKEN_TEXT, tokenValue2))
 			tokenValue += u8" " + tokenValue2;
 
-		node.SetValue(tokenValue);
+		node->SetValue(tokenValue);
 
 		this->ReportFeedback(RapParseFeedback::UnquotedString, tokenValue);
 	}
 
-	parent.AddNode(node);
+	return node;
 }
