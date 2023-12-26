@@ -235,9 +235,25 @@ async function RunCompileConfigJob(step: CompileConfigStep, env: EnvironmentConf
     const parsed = path.parse(sourceFilePath);
     const targetFilePath = path.join(env.vars["target"], step.targetFolder, parsed.name + ".bin");
 
+    const isNewer = await IsNewer(path.dirname(sourceFilePath), targetFilePath);
+    if(!isNewer)
+        return;
+
     await EnsureDirectoryExists(path.dirname(targetFilePath));
-    if(await IsNewer(path.dirname(sourceFilePath), targetFilePath))
+
+    if(step.definitions === undefined)
         await CallLocalBin("raPEdit", [sourceFilePath, ">", targetFilePath]);
+    else
+    {
+        const sourceDirPath = path.dirname(sourceFilePath);
+        const tmpFilePath = path.join(sourceDirPath, "._tmp_arma_pipeline.cpp");
+
+        const text = step.definitions.map(x => "#define " + x).join("\n") + '\n#include "' + path.basename(sourceFilePath) + '"';
+
+        await fs.promises.writeFile(tmpFilePath, text, "utf-8");
+        await CallLocalBin("raPEdit", [tmpFilePath, ">", targetFilePath]);
+        await fs.promises.unlink(tmpFilePath);
+    }
 }
 
 async function RunCopyFilesJob(step: CopyFilesStep, env: dotenv.DotenvParseOutput)
@@ -280,7 +296,7 @@ async function RunCreate7zArchiveJob(env: dotenv.DotenvParseOutput)
 async function RunExtractPBOJob(step: ExtractPBOStep, env: EnvironmentConfig)
 {
     const sourcePath = env.vars[step.source.sourceLocation];
-    const sourceFilePath = path.join(sourcePath, step.source.name);
+    const sourceFilePath = (step.source.type === "Archive") ? path.join(sourcePath, step.source.name) : sourcePath;
 
     IntegrityCheck(sourceFilePath, env.md5Hashes);
 
@@ -397,13 +413,14 @@ async function RunPackArchiveJob(step: PackArchiveStep, env: dotenv.DotenvParseO
 async function RunRepackArchiveJob(step: RepackArchiveStep, env: EnvironmentConfig)
 {
     const sourcePath = env.vars[step.source.sourceLocation];
+    const sourcePBOPath = (step.source.type === "Archive") ? path.join(sourcePath, step.source.name) : sourcePath;
 
     const repackPath = path.join(env.tempPath, "repack");
     await EnsureDirectoryExists(repackPath);
 
     const archiveFileProvider = new ArchiveFileProvider(env.archivesPath);
     const pboCatalog = new PBOFileCatalog(archiveFileProvider, env.pbosTempPath, []);
-    const pboPath = await pboCatalog.MountPBO(path.join(sourcePath, step.source.name), step.source.pbo);
+    const pboPath = await pboCatalog.MountPBO(sourcePBOPath, step.source.pbo);
 
     const targetPath = path.join(repackPath, step.targetPboName);
     await EnsureDirectoryExists(targetPath);
@@ -413,9 +430,10 @@ async function RunRepackArchiveJob(step: RepackArchiveStep, env: EnvironmentConf
 
     for (const entry of step.include)
     {
-        const files = Array.isArray(entry.files) ? entry.files : [entry.files];
-        for (const filePath of files)
+        const fileEntries = Array.isArray(entry.files) ? entry.files : [entry.files];
+        for (const fileEntry of fileEntries)
         {
+            const filePath = (typeof fileEntry === "string") ? fileEntry : fileEntry.sourceFileName;
             let sourceFilePath;
             switch(entry.type)
             {
@@ -429,7 +447,8 @@ async function RunRepackArchiveJob(step: RepackArchiveStep, env: EnvironmentConf
                     break;
             }
 
-            const targetFilePath = path.join(targetPath, path.basename(filePath));
+            const relativeTargetPath = (typeof fileEntry === "string") ? path.basename(filePath) : fileEntry.targetFileName;
+            const targetFilePath = path.join(targetPath, relativeTargetPath);
 
             if(path.extname(sourceFilePath) === ".cpp")
             {
