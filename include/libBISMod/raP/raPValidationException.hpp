@@ -16,34 +16,28 @@
  * You should have received a copy of the GNU General Public License
  * along with ArmA-Modding-Tools.  If not, see <http://www.gnu.org/licenses/>.
  */
-//Class header
-#include <libBISMod/raP/RapNode.hpp>
-//Namespaces
-using namespace libBISMod;
-using namespace StdXX;
+#include <StdXXErrorHandling.hpp>
+//Local
+#include "Definitions.hpp"
 
-//Public methods
-uint32 RapNode::AddArrayValue(const RapArrayValue &refValue)
+namespace libBISMod
 {
-	return this->arrayValues.Push(refValue);
-}
+	class raPValidationException : public StdXX::Exception
+	{
+	public:
+		//Constructor
+		inline raPValidationException(StdXX::String&& errorMessage) : errorMessage(Move(errorMessage))
+		{
+		}
 
-RapArrayValue &RapNode::GetArrayValue(uint32 index)
-{
-	return this->arrayValues[index];
-}
+		//Public methods
+		StdXX::String Description() const override
+		{
+			return this->errorMessage;
+		}
 
-RapNode &RapNode::GetNode(uint32 index)
-{
-	return *this->classData.children[index];
-}
-
-void RapNode::SetName(String name)
-{
-	this->name = name;
-}
-
-void RapNode::SetPacketType(RapPacketType type)
-{
-	this->packetType = type;
+	private:
+		//State
+		StdXX::String errorMessage;
+	};
 }

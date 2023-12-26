@@ -23,7 +23,8 @@ namespace libBISMod
 {
 	StdXX::UniquePointer<RapTree> RapParseFile(const StdXX::FileSystem::Path& inputPath, const StdXX::Function<void(const RapParseFeedback&, const StdXX::String&, const RapParseContext& context)>& parseFeedback);
 	void RapPreprocessFile(const StdXX::FileSystem::Path& inputPath, StdXX::TextWriter& textWriter);
-	void ReadRapTreeFromFile(const StdXX::FileSystem::Path& path, RapTree *pRootNode);
-	void SaveRapTreeToStream(StdXX::OutputStream &outputStream, const RapTree& rootNode);
-	void SaveRawRapTreeToStream(StdXX::OutputStream &outputStream, const RapTree& rootNode);
+	StdXX::UniquePointer<RapTree> ReadRapTreeFromFile(const StdXX::FileSystem::Path& path);
+	void ValidateRapTree(const RapTree& tree);
+	void SaveRapTreeToStream(StdXX::OutputStream &outputStream, const RapTree& rapTree);
+	void SaveRawRapTreeToStream(StdXX::OutputStream &outputStream, const RapTree& rapTree);
 }

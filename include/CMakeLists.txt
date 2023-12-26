@@ -20,6 +20,7 @@ set(SOURCE_FILES
 	${CMAKE_CURRENT_SOURCE_DIR}/libBISMod/raP/RapArrayValue.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/libBISMod/raP/RapNode.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/libBISMod/raP/raPParseException.hpp
+	${CMAKE_CURRENT_SOURCE_DIR}/libBISMod/raP/raPValidationException.hpp
 
 	#wrp
 	${CMAKE_CURRENT_SOURCE_DIR}/libBISMod/wrp/World.hpp

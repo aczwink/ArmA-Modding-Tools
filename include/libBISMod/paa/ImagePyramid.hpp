@@ -25,6 +25,7 @@ namespace libBISMod
 	enum class PAACodecType
 	{
 		ABGR4444 = 0x4444,
+		GrayWithAlpha = 0x8080,
 		S3TC_DXT1 = 0xFF01,
 	};
 

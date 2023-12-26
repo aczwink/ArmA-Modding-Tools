@@ -28,8 +28,9 @@ public:
 	inline RapParser(RapLexer& lexer, const String& rootName, const Function<void(const RapParseFeedback&, const String&, const RapParseContext& context)>& reportFeedback) : lexer(lexer), reportFeedback(reportFeedback)
 	{
 		this->tree = new RapTree;
-		this->tree->SetPacketType(RAP_PACKETTYPE_CLASS);
-		this->tree->SetName(rootName);
+		this->tree->rootNode = new RapNode;
+		this->tree->rootNode->SetPacketType(RAP_PACKETTYPE_CLASS);
+		this->tree->rootNode->SetName(rootName);
 
 		this->lookahead = this->lexer.GetNextToken();
 		this->skipLineBreaks = true;
@@ -53,13 +54,13 @@ private:
 	const Function<void(const RapParseFeedback&, const String&, const RapParseContext& context)>& reportFeedback;
 
 	//Private methods
-	void ParseArrayLiteral(const String& identifier, RapNode& parent);
+	UniquePointer<RapNode> ParseArrayLiteral(const String& identifier);
 	RapArrayValue ParseArrayValue();
-	void ParseClass(RapNode& parent);
-	void ParseClassMemberPropertySet(const String& identifier, RapNode& parent);
+	UniquePointer<RapNode> ParseClass();
+	UniquePointer<RapNode> ParseClassMemberPropertySet(const String& identifier);
 	void ParseEnum();
-	void ParseNextTopLevel();
-	void ParseValue(const String& identifier, RapNode& parent);
+	UniquePointer<RapNode> ParseNextTopLevel();
+	UniquePointer<RapNode> ParseValue(const String& identifier);
 
 	//Inline
 	inline bool Accept(RapToken token)

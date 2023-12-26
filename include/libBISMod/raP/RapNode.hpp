@@ -32,6 +32,12 @@ namespace libBISMod
 	class RapNode
 	{
 	public:
+		//Constructor
+		inline RapNode()
+		{
+			this->parent = nullptr;
+		}
+
 		//Properties
 		inline StdXX::DynamicArray<RapArrayValue>& ArrayValue()
 		{
@@ -45,15 +51,37 @@ namespace libBISMod
 			return this->arrayValues;
 		}
 
-		inline const StdXX::DynamicArray<RapNode>& ChildNodes() const
+		inline const StdXX::DynamicArray<StdXX::UniquePointer<RapNode>>& ChildNodes() const
 		{
 			ASSERT_EQUALS(RapPacketType::RAP_PACKETTYPE_CLASS, this->packetType);
-			return this->embeddedPackets;
+			return this->classData.children;
+		}
+
+		inline const StdXX::String& InheritedClassName() const
+		{
+			ASSERT_EQUALS(RapPacketType::RAP_PACKETTYPE_CLASS, this->packetType);
+			return this->inheritedClassname;
+		}
+
+		inline void InheritedClassName(const StdXX::String& newValue)
+		{
+			ASSERT_EQUALS(RapPacketType::RAP_PACKETTYPE_CLASS, this->packetType);
+			this->inheritedClassname = newValue;
+		}
+
+		inline bool IsDerived() const
+		{
+			return !this->inheritedClassname.IsEmpty();
 		}
 
 		inline RapPacketType PacketType() const
 		{
 			return this->packetType;
+		}
+
+		inline const RapNode* Parent() const
+		{
+			return this->parent;
 		}
 
 		inline const StdXX::String& VariableValueString() const
@@ -71,23 +99,22 @@ namespace libBISMod
 
 		//Methods
 		uint32 AddArrayValue(const RapArrayValue &refValue);
-		uint32 AddNode(const RapNode &refNode);
 		RapArrayValue &GetArrayValue(uint32 index);
 		RapNode &GetNode(uint32 index);
-		void SetInheritedClassName(StdXX::String name);
 		void SetName(StdXX::String name);
 		void SetPacketType(RapPacketType type);
 
 		//Inline
+		inline uint32 AddChild(StdXX::UniquePointer<RapNode>&& child)
+		{
+			child->parent = this;
+			return this->classData.children.Push(StdXX::Move(child));
+		}
+
 		inline const RapNode& GetChildNode(uint32 index) const
 		{
 			ASSERT_EQUALS(RapPacketType::RAP_PACKETTYPE_CLASS, this->packetType);
-			return this->embeddedPackets[index];
-		}
-
-		inline StdXX::String GetInheritedClassName() const
-		{
-			return this->inheritedClassname;
+			return *this->classData.children[index];
 		}
 
 		inline StdXX::String GetName() const
@@ -97,7 +124,7 @@ namespace libBISMod
 
 		inline uint32 GetNumberOfEmbeddedPackages() const
 		{
-			return this->embeddedPackets.GetNumberOfElements();
+			return this->classData.children.GetNumberOfElements();
 		}
 
 		inline float32 GetVariableValueFloat() const
@@ -108,6 +135,13 @@ namespace libBISMod
 		inline int32 GetVariableValueInt() const
 		{
 			return this->iValue;
+		}
+
+		inline StdXX::String GlobalName() const
+		{
+			if(this->parent == nullptr)
+				return this->name;
+			return this->parent->GlobalName() + u8"/" + this->name;
 		}
 
 		inline void SetValue(int32 i)
@@ -132,8 +166,12 @@ namespace libBISMod
 		//State
 		StdXX::String name;
 		RapPacketType packetType;
+		RapNode* parent;
+		struct
+		{
+			StdXX::DynamicArray<StdXX::UniquePointer<RapNode>> children;
+		} classData;
 		StdXX::DynamicArray<RapArrayValue> arrayValues; //Only for array packet type
-		StdXX::DynamicArray<RapNode> embeddedPackets; //Only for class packet type
 		StdXX::String inheritedClassname; //Only for class packet type
 		RapVariableType varType; //Only for variable packet type
 		int32 iValue; //Only for variable packet type
@@ -141,9 +179,12 @@ namespace libBISMod
 		StdXX::String strValue; //Only for variable packet type
 	};
 
-	class RapTree : public RapNode
+	class RapTree
 	{
 	public:
+		//State
+		StdXX::UniquePointer<RapNode> rootNode;
+
 		//Properties
 		inline const StdXX::BinaryTreeMap<StdXX::String, uint32>& EnumTable() const
 		{

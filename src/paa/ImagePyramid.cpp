@@ -51,6 +51,7 @@ CodingFormatId ImagePyramid::QueryCodingFormatId() const
 	switch(codecType)
 	{
 		case PAACodecType::ABGR4444:
+		case PAACodecType::GrayWithAlpha:
 			return CodingFormatId::RawVideo;
 		case PAACodecType::S3TC_DXT1:
 			return CodingFormatId::S3TC_DXT1;
@@ -86,6 +87,28 @@ StdXX::Optional<StdXX::Multimedia::PixelFormat> ImagePyramid::QueryPixelFormat()
 
 			return fmt;
 		}
+
+		case PAACodecType::GrayWithAlpha:
+		{
+			auto fmt = Multimedia::PixelFormat(Multimedia::ColorSpace::YA);
+
+			for(uint8 i = 0; i < 2; i++)
+			{
+				fmt.colorComponents[i].planeIndex = 0;
+				fmt.colorComponents[i].isFloat = false;
+				fmt.colorComponents[i].max.u8 = 255;
+				fmt.colorComponents[i].min.u8 = 0;
+				fmt.colorComponents[i].nBits = 8;
+			}
+			fmt.colorComponents[0].shift = 0;
+			fmt.colorComponents[1].shift = 8;
+
+			fmt.nPlanes = 1;
+			fmt.planes[0].horzSampleFactor = 1;
+			fmt.planes[0].vertSampleFactor = 1;
+
+			return fmt;
+		}
 	}
 
 	return {};
@@ -96,7 +119,8 @@ uint32 ImagePyramid::ComputeImageByteSize(uint16 width, uint16 height) const
 {
 	switch(this->codecType)
 	{
-		case PAACodecType::ABGR4444:
+		case PAACodecType::ABGR4444: // 4 bits per color x 4 color components = 2 bytes
+		case PAACodecType::GrayWithAlpha: //one byte alpha, one byte 'grey'
 			return width * height * 2_u32;
 		case PAACodecType::S3TC_DXT1:
 			return (width * height) / 2_u32;
