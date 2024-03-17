@@ -18,19 +18,24 @@
 
 import { Dictionary } from "acts-util-core";
 
-interface PBOLocation
+interface ArchiveLocation
 {
     type: "Archive";
     sourceLocation: string;
     name: string;
-    pbo: string;
 }
 
-interface ArchiveWithPBOsFileSource
+interface FileSystemLocation
 {
-    type: "Archive";
+    type: "FileSystem";
     sourceLocation: string;
-    name: string;
+}
+type Location = ArchiveLocation | FileSystemLocation;
+
+type PBOLocation = Location & { pbo: string; };
+
+interface ArchiveWithPBOsFileSource extends ArchiveLocation
+{
     pbos: string[];
 }
 
@@ -41,10 +46,8 @@ interface ArchiveWithoutPBOsFileSource
     name: string;
 }
 
-interface FileSystemFileSource
+interface FileSystemFileSource extends FileSystemLocation
 {
-    type: "FileSystem";
-    sourceLocation: string;
     files: string | string[];
 }
 
@@ -57,6 +60,12 @@ interface DtaExtStepFileEntry
     sourceFileName: string;
     type: "base" | "magazine" | "weapon";
     targetName: string;
+}
+
+interface RepackFileEntry
+{
+    sourceFileName: string;
+    targetFileName: string;
 }
 
 export interface BuildDtaExtStep
@@ -77,6 +86,7 @@ export interface CompileConfigStep
     source: string;
     sourceFile: string;
     targetFolder: string;
+    definitions?: string[];
 }
 
 export interface CopyFilesStep
@@ -127,7 +137,7 @@ export interface RepackArchiveStep
     type: "RepackArchive";
     source: PBOLocation;
     exclude: string[];
-    include: FileSourceWithFiles<string>[];
+    include: FileSourceWithFiles<string | RepackFileEntry>[];
     targetPboName: string;
 }
 

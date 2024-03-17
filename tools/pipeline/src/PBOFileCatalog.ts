@@ -133,6 +133,10 @@ export class PBOFileCatalog
     //Private methods
     private async EnsurePBOFileIsExtracted(pboInfo: PBOInfo)
     {
+        const pboPath = path.join(pboInfo.archiveFilePath, pboInfo.pboPath);
+        if(fs.existsSync(pboPath))
+            return pboPath;
+        
         const extractedArchivePath = await this.archiveFileProvider.ProvideFile(pboInfo.archiveFilePath, pboInfo.pboPath);
         return extractedArchivePath;
     }
