@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Amir Czwink (amir130@hotmail.de)
+ * Copyright (c) 2023-2024 Amir Czwink (amir130@hotmail.de)
  *
  * This file is part of ArmA-Modding-Tools.
  *
@@ -19,6 +19,7 @@
 #include <StdXX.hpp>
 //Corresponding header
 #include "LZSS.hpp"
+#include "BI_LZSS_Compressor.hpp"
 //Definitions
 #define LZSS_SPACEFILTER 0x20
 
@@ -43,41 +44,14 @@ static uint32 CalculateChecksum(byte *pUncompressedData, uint32 size, bool isSig
 //Global functions
 void LZSSCompressData(const byte *pInput, uint32 uncompressedSize, byte *pOutput, uint32 &refOutputSize)
 {
-	byte flagByte = 0, bits, data[8];
-	uint32 checksum = 0;
+	BufferInputStream inputStream(pInput, uncompressedSize);
+	BufferOutputStream outputStream(pOutput, 2 * uncompressedSize);
 
-	MemZero(&data, sizeof(data));
-	refOutputSize = 0;
+	BI_LZSS_Compressor compressor(outputStream);
+	inputStream.FlushTo(compressor);
+	compressor.Finalize();
 
-	while(uncompressedSize > 0)
-	{
-		for(bits = 0; bits < 8; bits++)
-		{
-			if(uncompressedSize == 0)
-			{
-				if(!flagByte)
-				{
-					goto finish;
-				}
-				break;
-			}
-			flagByte |= 1 << bits;
-			data[bits] = *pInput++;
-			uncompressedSize--;
-			checksum += data[bits];
-		}
-
-		*pOutput++ = flagByte;
-		refOutputSize++;
-
-		MemCopy(pOutput, &data, bits);
-		pOutput += bits;
-		refOutputSize += bits;
-	}
-	finish:
-
-	MemCopy(pOutput, &checksum, sizeof(checksum));
-	refOutputSize += sizeof(checksum);
+	refOutputSize = compressor.CompressedSize();
 }
 
 bool LZSSReadCompressed(byte *pOutput, uint32 uncompressedSize, InputStream &refInput)
