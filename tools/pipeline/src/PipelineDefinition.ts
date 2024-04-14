@@ -1,6 +1,6 @@
 /**
  * ArmA-Modding-Tools
- * Copyright (C) 2023 Amir Czwink (amir130@hotmail.de)
+ * Copyright (C) 2023-2024 Amir Czwink (amir130@hotmail.de)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -51,7 +51,14 @@ interface FileSystemFileSource extends FileSystemLocation
     files: string | string[];
 }
 
-type FileSource = ArchiveWithPBOsFileSource | ArchiveWithoutPBOsFileSource | FileSystemFileSource;
+interface PBOOnFileSystemSource
+{
+    type: "FileSystemPBO";
+    sourceLocation: string;
+    pbo: string;
+}
+
+type FileSource = ArchiveWithPBOsFileSource | ArchiveWithoutPBOsFileSource | FileSystemFileSource | PBOOnFileSystemSource;
 type FileSourceWithFiles<T> = FileSource & { files: T | T[]; };
 
 
