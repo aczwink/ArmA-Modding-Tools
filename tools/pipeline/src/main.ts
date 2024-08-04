@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * ArmA-Modding-Tools
- * Copyright (C) 2023 Amir Czwink (amir130@hotmail.de)
+ * Copyright (C) 2023-2024 Amir Czwink (amir130@hotmail.de)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -343,6 +343,14 @@ async function RunImportFilesJob(step: ImportFilesStep, env: EnvironmentConfig)
                 }
             }
             break;
+            case "FileSystemPBO":
+            {
+                const sourcePath = env.vars[source.sourceLocation];
+                const sourceFilePath = path.join(sourcePath, source.pbo);
+                IntegrityCheck(sourceFilePath, env.md5Hashes);
+                pboCatalog.AddPBO(sourcePath, source.pbo);
+            }
+            break;
         }
     }
 
@@ -351,6 +359,7 @@ async function RunImportFilesJob(step: ImportFilesStep, env: EnvironmentConfig)
         switch(source.type)
         {
             case "Archive":
+            case "FileSystemPBO":
             {
                 const files = Array.isArray(source.files) ? source.files : [source.files];
                 for (const file of files)
@@ -442,6 +451,8 @@ async function RunRepackArchiveJob(step: RepackArchiveStep, env: EnvironmentConf
                 case "FileSystem":
                     sourceFilePath = path.join(env.vars[entry.sourceLocation], filePath);
                     break;
+                case "FileSystemPBO":
+                    throw new Error("TODO: implement me");
                 case "FlatArchive":
                     sourceFilePath = await archiveFileProvider.ProvideFile(path.join(env.vars[entry.sourceLocation], entry.name), filePath);
                     break;
